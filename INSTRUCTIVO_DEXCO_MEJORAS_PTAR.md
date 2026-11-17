@@ -56,13 +56,26 @@ Claude revisa esto al inicio y avisa lo que falte. En el laptop de FANALCA ya es
 | ✅ Python 3.12 + `requirements.txt` + `requirements-dev.txt` | Generar el sitio, GUI, tests | `python3 -c "import nicegui, openpyxl, supabase, PIL, pytest"` | `pip3 install --break-system-packages -r requirements.txt -r requirements-dev.txt` |
 | ✅ Node 22 | Tests JS | `node --version` | — |
 | ✅ `gh` (GitHub CLI) | Crear repo, push, Pages, Actions | `gh --version` | `sudo apt install gh` |
-| ✅ `supabase` CLI | Aplicar migraciones | `supabase --version` | `.deb` de https://github.com/supabase/cli/releases |
+| ✅ `supabase` CLI **completo** | Aplicar migraciones | `supabase link --help` debe mostrar "Link to a Supabase project" (no basta `--version`) | Ver nota "CLI de Supabase" abajo |
 | ✅ `rsync`, `unzip`, `curl` | Copiar código, leer hojas del Excel, bajar el logo | `which rsync unzip curl` | `sudo apt install -y rsync unzip curl` |
 | ✅ Chromium headless | Capturas a 390/1280 px para revisar el sitio | `ls ~/.cache/ms-playwright/` | `npx playwright install chromium-headless-shell` |
 | ✅ `xlrd` | Leer el programa de mantenimiento del cliente si viene en `.xls` viejo (openpyxl no lo abre) | `python3 -c "import xlrd"` | `pip3 install --break-system-packages xlrd` |
 | ☐ Docker | Solo para tests de RLS en local (`supabase start`) | `docker info` | Docker Desktop con WSL integration |
 | ☐ **Sesión `gh` con la cuenta de DEXCO** | Push al repo correcto | `gh auth status` | Parte 3.1 (la hace el usuario: abre navegador) |
 | ☐ **Sesión `supabase` con la cuenta de DEXCO** | Migraciones | `supabase projects list` muestra el ref de DEXCO | `supabase login` (la hace el usuario) |
+
+**CLI de Supabase (problema real en FANALCA).** La versión 2.109.x instalada como un solo archivo en `~/.local/bin/supabase` es solo un *lanzador*: `projects list` y `--version` funcionan, pero `link` / `db push` fallan con *"for `supabase-go` in: … not found alongside the shim"*. Instalar el paquete completo (lanzador + `supabase-go` juntos) y ponerlo primero en el PATH:
+
+```bash
+mkdir -p "$HOME/.local/share/supabase"
+curl -sL https://github.com/supabase/cli/releases/download/v2.109.1/supabase_2.109.1_linux_amd64.tar.gz \
+  | tar -xzf - -C "$HOME/.local/share/supabase"
+echo 'export PATH="$HOME/.local/share/supabase:$PATH"' >> ~/.bashrc     # lo hace el usuario
+source ~/.bashrc
+supabase link --help | head -3
+```
+
+Claude no tiene permiso para editar `~/.bashrc`: esa línea la agrega el usuario.
 
 **MCPs (conectores de Claude):**
 
