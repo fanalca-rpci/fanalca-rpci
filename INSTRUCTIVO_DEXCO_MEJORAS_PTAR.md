@@ -348,6 +348,24 @@ No hay `.exe`: `windows_launchers/*.bat` arrancan `gui.py` en WSL y abren `local
 - Tipos de equipo **sin rutinas en el MP-02** (en FANALCA: compresor de pistón `100-C-01` y mezclador axial `400-MX-01`): pedirlas al cliente o tomarlas del manual del fabricante; no inventarlas.
 - **Calendario/programación:** fuera por ahora; se propondrá después.
 
+### 9.4 Cargar las rutinas ✅ validado en FANALCA
+
+Las rutinas viven en un SQL por planta: [supabase/datos/fanalca_rutinas.sql](supabase/datos/fanalca_rutinas.sql) (8 tipos de equipo, 38 rutinas, 15 TAGs). Para DEXCO:
+
+1. Copiar a `supabase/datos/dexco_rutinas.sql`.
+2. Reutilizar los tipos que se repitan (bombas sumergibles, sopladores, neumáticas, tanques… ya tienen sus 5 rutinas) y armar los nuevos desde el programa preventivo de DEXCO (máx. 5, mensual o mayor).
+3. Cambiar la lista TAG → tipo al final del archivo (pares A/B con el mismo `group_key`).
+4. Aplicar y verificar:
+
+```bash
+supabase db query --linked -f supabase/datos/dexco_rutinas.sql
+supabase db query --linked "select c.name, count(a.*) rutinas from public.equipment_classes c left join public.maintenance_activities a on a.class_id=c.id group by c.name"
+```
+
+`supabase db query -f` **sí** aplicó este archivo completo (varias sentencias dentro de `begin … commit`) con la CLI 2.109.1.
+
+**Equipos sin rutinas en el programa del cliente: no dejarlos vacíos.** Armarlas con práctica estándar del fabricante y decírselo al usuario. En FANALCA: compresor de pistón (filtro de aspiración, correas, aceite, válvula de seguridad + presostato, válvulas del cabezal) y difusor ciclónico chino (burbujeo, presión/caudal, fugas de aire, **sacar la parrilla y limpiarla**, anclajes y estado de difusores). Para difusores ciclónicos no hay manuales públicos útiles: la limpieza de la parrilla y la revisión de incrustaciones son la clave.
+
 Cuando el módulo exista, vendrá en el código clonado y aquí se documentará cómo activarlo para DEXCO.
 
 ---
