@@ -228,11 +228,11 @@ Mientras no se apliquen las migraciones, las fichas se ven bien pero la sección
 
 ---
 
-## Parte 9 — Publicar ⏳ pendiente de validar en FANALCA
+## Parte 9 — Publicar ✅ validado en FANALCA (2026-11-17)
 
-1. `gh auth status` → cuenta de DEXCO activa.
+1. `gh auth status` → cuenta de DEXCO activa. **Y** `git config user.email` dentro del repo debe ser el Gmail de DEXCO: si no se hizo el paso 3.1, git firma con el correo global personal.
 2. `gh repo create <cuenta>/<repo> --public` (si no existe; vacío, sin README).
-3. Decidir si `docs/superpowers/` se publica. Recomendado: no.
+3. `docs/superpowers/` (specs del sistema) no se publica: ya viene en `.gitignore` desde FANALCA. Se queda en disco, no sube.
 4. `git status`: que no aparezcan `.env`, `.env.test` ni nada con la `service_role`. Commit inicial.
 5. Con confirmación: `git push -u origin master`.
 6. Pages: `gh api -X POST repos/<cuenta>/<repo>/pages -f "source[branch]=master" -f "source[path]=/docs"`.

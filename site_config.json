@@ -4,16 +4,16 @@
   "banner_title_short": "PTAR FANALCA",
   "site_url": "https://fanalca-rpci.github.io/fanalca-rpci/",
   "theme": {
-    "accent": "#20c975",
-    "accent_hover": "#189d5b",
-    "banner_gradient": "linear-gradient(135deg, #7eeab4 0%, #20c975 60%, #1aa560 100%)",
+    "accent": "#081c49",
+    "accent_hover": "#0d2f6b",
+    "banner_gradient": "linear-gradient(135deg, #081c49 0%, #0d2f6b 55%, #0b4f8f 100%)",
     "banner_text": "#ffffff",
-    "banner_shadow": "0 4px 14px rgba(32,201,117,0.25)",
-    "content_bg": "#d6f8e7",
+    "banner_shadow": "0 4px 14px rgba(8,28,73,0.30)",
+    "content_bg": "#eef6fc",
     "card_bg": "#ffffff",
     "text": "#1f2328",
     "text_muted": "#57606a",
-    "border": "#c0f4da"
+    "border": "#cfe6f6"
   },
   "logos": {
     "left": "assets/logos/LogoRPCI.png",
@@ -21,7 +21,7 @@
     "left_href": "https://rpci.com.co",
     "right": "assets/logos/LogoCliente.png",
     "right_alt": "FANALCA",
-    "right_href": ""
+    "right_href": "https://fanalca.com/"
   },
   "supabase": {
     "url": "https://bcpthbpbyyrlemvbrshp.supabase.co",
