@@ -2,7 +2,7 @@
 
 Pasos para montar el sitio de fichas técnicas con QR + mantenimientos (Supabase) para **DEXCO Mejoras PTAR**, partiendo del proyecto de **FANALCA** (`fanalca-rpci/fanalca-rpci`).
 
-> **Documento vivo.** Se escribe mientras se monta FANALCA (noviembre 2026). Las partes marcadas **⏳ pendiente de validar en FANALCA** todavía no se han probado de punta a punta; mientras tanto, seguir la parte equivalente de [INSTRUCTIVO_NUEVO_PROYECTO.md](INSTRUCTIVO_NUEVO_PROYECTO.md).
+> **Documento vivo.** Se escribe mientras se monta FANALCA (noviembre 2026). Lo marcado **✅ validado** ya se hizo de punta a punta en FANALCA; lo marcado **⏳** todavía no, y mientras tanto se sigue la parte equivalente de [INSTRUCTIVO_NUEVO_PROYECTO.md](INSTRUCTIVO_NUEVO_PROYECTO.md).
 
 **Cómo usarlo:** abrir Claude Code en la carpeta del proyecto nuevo y escribir:
 
@@ -10,114 +10,136 @@ Pasos para montar el sitio de fichas técnicas con QR + mantenimientos (Supabase
 
 **Regla de oro:** un proyecto = un repo de GitHub + un proyecto de Supabase + una cuenta de Gmail. Nada se comparte con FANALCA ni con D'Vida. Los mantenimientos se guardan por TAG en texto: si dos plantas comparten base, un `100-P-01A` de una se mezcla con el de la otra.
 
+**Tiempo en FANALCA:** ~3 h hasta el sitio publicado con logo y colores (sin contar Supabase ni usuarios).
+
 ---
 
 ## Para Claude (leer antes de hacer nada)
 
 - `CLAUDE.md` describe el sistema (escrito para D'Vida). Úsalo como documentación técnica, no como datos de DEXCO.
+- **Primero revisa las herramientas (Parte 1) y avisa al usuario de lo que falte** — CLIs, sesiones, MCPs, skills — antes de llegar al paso que lo necesita. Es una preferencia explícita del usuario.
 - **Pregunta primero, actúa después.** Pide los datos de la Parte 0 con `AskUserQuestion`. Lo que falte queda pendiente y se sigue con lo que no dependa de eso.
-- **Pide confirmación** antes de: `git push`, crear el repo, activar Pages, `supabase db push`, crear usuarios.
+- **Pide confirmación** antes de: crear el repo, el primer `git push`, activar Pages, aplicar migraciones, crear usuarios.
 - **Nunca** pongas la `service_role` / `secret` key de Supabase en el repo ni en `site_config.json`. Solo la `anon` key.
-- **Nunca** copies contraseñas del usuario a archivos del proyecto (ver "Seguridad" al final).
+- **Nunca** manejes contraseñas del usuario: los pasos que piden la contraseña de la base (`supabase link`) los corre el usuario en su terminal.
+- **Antes de cada commit, mira `git status` completo** — no hagas `git add -A` a ciegas. En FANALCA se subieron dos documentos del cliente (`Assets/Mantenimiento/`) sin revisarlos; el usuario decidió dejarlos públicos, pero debió decidirlo antes.
+- **Después de cada push**, confirma el Action de Pages con **un solo** comando en segundo plano y reporta una línea (ver Parte 10). No hagas polling ni leas logs salvo que falle.
 - Español en todo. Rama `master`. Celular primero: probar a 360 y 390 px.
-- **Borrar con rutas absolutas.** La protección de Claude Code bloquea `rm -rf carpeta/*` después de un `cd` (no puede resolver el glob). Usa `rm -rf "/home/<usuario>/<proyecto>/docs/assets/images"` y luego `mkdir -p`.
+- **Borrar con rutas absolutas.** La protección de Claude Code bloquea `rm -rf carpeta/*` después de un `cd`. Usa `rm -rf "/home/<usuario>/<proyecto>/docs/assets/images"` y luego `mkdir -p`.
 
 ---
 
 ## Parte 0 — Datos que hay que pedir
 
-| # | Dato | Ejemplo FANALCA | DEXCO |
-|---|------|-----------------|-------|
+| # | Dato | FANALCA (referencia) | DEXCO |
+|---|------|----------------------|-------|
 | 1 | Correo Gmail del proyecto | `fanalca.rpci@gmail.com` | _pendiente_ |
-| 2 | Cuenta y repo de GitHub (**público**, para Pages gratis) | `fanalca-rpci/fanalca-rpci` | _pendiente_ |
-| 3 | Supabase: project ref, Project URL, **anon key** (la JWT "legacy" `eyJ…`; la `sb_publishable_…` también existe pero el código está probado con la anon) | `bcpthbpbyyrlemvbrshp` | _pendiente_ |
+| 2 | Cuenta y repo de GitHub (**público**: Pages gratis) | `fanalca-rpci/fanalca-rpci` | _pendiente_ |
+| 3 | Supabase: project ref, Project URL, **anon key** (JWT `eyJ…`, en Project Settings → API → "Legacy anon key"; la `sb_publishable_…` también existe, pero el código está probado con la anon) | `bcpthbpbyyrlemvbrshp` | _pendiente_ |
 | 4 | Ruta de la carpeta de fichas técnicas | `D:\Proyectos con Ingenieria SAS\Proyectos - General\NP00043 STARD Fanalca\INGENIERIA\2. Fichas téc` | _pendiente_ |
 | 5 | Títulos: sitio, banner largo, banner corto | `QR PTAR FANALCA` / `Documentación Técnica — PTAR FANALCA` / `PTAR FANALCA` | `QR DEXCO Mejoras PTAR` / … (confirmar) |
-| 6 | Logo del cliente (PNG), URL de su página, color del tema | — | _pendiente_ |
-| 7 | Personas: nombre, correo, rol (`tecnico` / `oficina`) | — | _pendiente_ |
-| 8 | ¿Se publica `docs/superpowers/` (specs del sistema)? | Recomendado: no | — |
+| 6 | Página web del cliente (de ahí sale el logo y los colores) | `https://fanalca.com/` | _pendiente_ |
+| 7 | Personas: nombre, correo, rol (`tecnico` / `oficina`) | _pendiente_ | _pendiente_ |
+| 8 | Documentos de mantenimiento del cliente (plan, manual) | `MP-02 .xls`, `MP-03 .docx` en `Assets/Mantenimiento/` (públicos en el repo, por decisión del usuario) | ¿públicos o fuera de git? |
 
 **Comprobar la anon key** antes de usarla: el payload del JWT (segunda parte, base64) debe decir `"ref":"<project ref>"` y `"role":"anon"`. Si el `ref` no coincide con la URL, el login falla con "Invalid API key".
 
 ---
 
-## Parte 1 — Traer el código
+## Parte 1 — Herramientas: qué tiene que haber en el laptop
 
-El código base es el de **FANALCA** (ya trae los arreglos de esta guía). Se clona en una carpeta temporal y se copia **sin `.git`** para que DEXCO arranque con historial limpio y sin el `origin` de FANALCA.
+Claude revisa esto al inicio y avisa lo que falte. En el laptop de FANALCA ya estaba todo lo marcado ✅.
+
+| Herramienta | Para qué | Comprobar | Instalar / configurar |
+|---|---|---|---|
+| ✅ Python 3.12 + `requirements.txt` + `requirements-dev.txt` | Generar el sitio, GUI, tests | `python3 -c "import nicegui, openpyxl, supabase, PIL, pytest"` | `pip3 install --break-system-packages -r requirements.txt -r requirements-dev.txt` |
+| ✅ Node 22 | Tests JS | `node --version` | — |
+| ✅ `gh` (GitHub CLI) | Crear repo, push, Pages, Actions | `gh --version` | `sudo apt install gh` |
+| ✅ `supabase` CLI | Aplicar migraciones | `supabase --version` | `.deb` de https://github.com/supabase/cli/releases |
+| ✅ `rsync`, `unzip`, `curl` | Copiar código, leer hojas del Excel, bajar el logo | `which rsync unzip curl` | `sudo apt install -y rsync unzip curl` |
+| ✅ Chromium headless | Capturas a 390/1280 px para revisar el sitio | `ls ~/.cache/ms-playwright/` | `npx playwright install chromium-headless-shell` |
+| ☐ Docker | Solo para tests de RLS en local (`supabase start`) | `docker info` | Docker Desktop con WSL integration |
+| ☐ **Sesión `gh` con la cuenta de DEXCO** | Push al repo correcto | `gh auth status` | Parte 3.1 (la hace el usuario: abre navegador) |
+| ☐ **Sesión `supabase` con la cuenta de DEXCO** | Migraciones | `supabase projects list` muestra el ref de DEXCO | `supabase login` (la hace el usuario) |
+
+**MCPs (conectores de Claude):**
+
+| MCP | Estado en FANALCA | Qué hacer en DEXCO |
+|---|---|---|
+| Supabase de claude.ai | Conectado, pero a **otra** cuenta: `get_project` → *"You do not have permission"* | No sirve para DEXCO salvo que se conecte con la cuenta de DEXCO. Usar el CLI. |
+| Supabase por proyecto (`.mcp.json`) | **No vino en el código** (no estaba commiteado en D'Vida) | Opcional. Crear `.mcp.json` con `{"mcpServers":{"supabase":{"type":"http","url":"https://mcp.supabase.com/mcp?project_ref=<ref>"}}}` y autorizar con `/mcp` usando la cuenta de DEXCO. Sirve para que Claude consulte la base sin pedir comandos. |
+| Claude in Chrome | Disponible | Opcional, para revisar el sitio publicado. |
+
+**Skills / plugins:** el plugin **superpowers** (brainstorming, planes, TDD) ya está instalado. `CLAUDE.md` menciona una skill `browser-automation` que **no existe** en este laptop: en su lugar se usa Chromium headless directo (Parte 6.4).
+
+---
+
+## Parte 2 — Traer el código ✅ validado
+
+El código base es el de **FANALCA** (ya trae los arreglos de esta guía). Se clona en una carpeta temporal y se copia **sin `.git`**:
 
 ```bash
 cd ~
 git clone https://github.com/fanalca-rpci/fanalca-rpci.git qr-base-tmp
 mkdir -p ~/DEXCO_QR
-rsync -a --exclude='.git' ~/qr-base-tmp/ ~/DEXCO_QR/
+rsync -a --exclude='.git' --exclude='Assets/' ~/qr-base-tmp/ ~/DEXCO_QR/
 cd ~/DEXCO_QR && git init -b master
 rm -rf ~/qr-base-tmp
 ```
 
-- Trabajar siempre en el disco de WSL (`~/…`), **nunca** en `/mnt/c` o `/mnt/d` (lento, permisos y CRLF en los `.sh`).
-- Si `rsync` no está: `sudo apt install -y rsync`.
+- `--exclude='Assets/'` deja fuera los documentos de mantenimiento de FANALCA.
+- Trabajar siempre en el disco de WSL (`~/…`), **nunca** en `/mnt/c` o `/mnt/d`.
 
-**Comprobar:** `ls` muestra `gui.py`, `excel_migrator.py`, `supabase/`, `sabana_base.xlsx`; `git remote -v` no muestra nada.
-
----
-
-## Parte 2 — Preparar el laptop
-
-```bash
-pip3 install --break-system-packages -r requirements.txt -r requirements-dev.txt
-python3 -c "import nicegui, openpyxl, supabase, PIL, pytest; print('ok')"
-node --version        # 22.x, para los tests JS
-```
-
-`requirements-dev.txt` trae `pytest`; sin él no corren los tests.
+**Comprobar:** `ls` muestra `gui.py`, `excel_migrator.py`, `supabase/`, `sabana_base.xlsx`; `git remote -v` vacío.
 
 ---
 
-## Parte 3 — Cuentas: GitHub y Supabase de DEXCO
+## Parte 3 — Cuentas ✅ validado
 
-### 3.1 GitHub con una segunda cuenta
-
-En el laptop ya hay una cuenta (p. ej. `jagilren`, con SSH). Se agrega la de DEXCO **por HTTPS** para que git no use la llave SSH personal contra el repo de DEXCO:
+### 3.1 GitHub con una segunda cuenta (la hace el usuario)
 
 ```bash
 gh auth login --hostname github.com --git-protocol https --web   # entrar con la cuenta de DEXCO
 gh auth setup-git
-cd ~/DEXCO_QR
-git config user.name  "DEXCO RPCI"          # solo este repo
+```
+
+Luego Claude, dentro del repo:
+
+```bash
+git config user.name  "DEXCO RPCI"
 git config user.email "<gmail de DEXCO>"
 ```
 
-- **Comprobar:** `gh auth status` → la cuenta de DEXCO con `Active account: true`.
-- Cambiar entre cuentas: `gh auth switch -u <cuenta>`. La cuenta activa es la que usa `git push` en **todos** los repos por HTTPS: antes de hacer push en otro proyecto, verificar con `gh auth status`.
+- **HTTPS, no SSH:** la cuenta personal (`jagilren`) usa SSH con su llave; si DEXCO también usara SSH, git subiría con la llave equivocada.
+- **Comprobar:** `gh auth status` → DEXCO con `Active account: true`; `git config user.email` → Gmail de DEXCO (sin esto, git firma con el correo global personal).
+- Cambiar entre cuentas: `gh auth switch -u <cuenta>`. La activa es la que usa `git push` en **todos** los repos HTTPS.
 
-### 3.2 Supabase
+### 3.2 Supabase (la hace el usuario)
 
 ```bash
-supabase login         # con la cuenta de Supabase de DEXCO
-supabase projects list # debe aparecer el ref de DEXCO
+supabase login
+supabase projects list      # debe aparecer el ref de DEXCO, ACTIVE_HEALTHY
 ```
-
-> El conector de Supabase de claude.ai puede estar en **otra** cuenta: si `get_project` responde *"You do not have permission"*, no es error del proyecto, es la cuenta. Usar el CLI.
 
 ---
 
-## Parte 4 — Quitar todo lo de FANALCA
+## Parte 4 — Quitar todo lo de FANALCA ✅ validado (con D'Vida)
 
-Rutas absolutas (ver "Para Claude"). Con `P=/home/<usuario>/DEXCO_QR`:
+Con `P=/home/<usuario>/DEXCO_QR`:
 
 ```bash
 rm -f "$P/plantilla_sitio.xlsx" "$P/TAG_RESOURCES.xlsx" "$P/fichas_source.xlsx" \
-      "$P"/NP00043*.xlsm "$P/docs/assets/logos/LogoCliente.png" "$P/docs/CNAME" \
+      "$P"/NP00043*.xlsm "$P"/docs/assets/logos/LogoCliente*.png "$P/docs/CNAME" \
       "$P/docs/urls.txt" "$P/docs/migration_metadata.json" "$P/docs/README.md" \
       "$P/docs/index.html" "$P/docs/mantenimientos.html" "$P"/docs/search-index.*
 rm -rf "$P/docs/equipos" "$P/docs/instrumentos" "$P/docs/tanques" "$P/docs/assets/images"
 mkdir -p "$P/docs/assets/images"
-find "$P" -name "*:Zone.Identifier" -not -path "$P/.git/*" -delete   # basura de copiar desde Windows
+find "$P" -name "*:Zone.Identifier" -not -path "$P/.git/*" -delete
 ```
 
-**No borrar** `sabana_base.xlsx` (biblioteca de mantenimiento reutilizable) ni `docs/assets/logos/LogoRPCI.png`.
+**No borrar** `sabana_base.xlsx` ni `docs/assets/logos/LogoRPCI.png`.
 
-Reemplazar la URL y los nombres de FANALCA (cambiar `<cuenta>/<repo>`):
+Reemplazar la URL y nombres (cambiar `<cuenta>/<repo>`):
 
 ```bash
 sed -i 's#https://fanalca-rpci.github.io/fanalca-rpci/#https://<cuenta>.github.io/<repo>/#g' \
@@ -128,63 +150,36 @@ sed -i 's#PTAR FANALCA#DEXCO Mejoras PTAR#g; s#Ej. https://www.fanalca.com#Ej. h
   gui.py excel_migrator.py
 ```
 
-Revisar en `windows_launchers/Lanzar_QR_App_WSL.bat` que `WSL_USER` sea el usuario de Ubuntu (`whoami`).
+Revisar `WSL_USER` en `windows_launchers/Lanzar_QR_App_WSL.bat` (`whoami`).
 
-**Comprobar** (solo deben quedar `CLAUDE.md`, los instructivos y `docs/superpowers/`):
+**Comprobar:**
 
 ```bash
 grep -rniIl "fanalca\|bcpthbpbyyrlemvbrshp\|dvida\|qgxvukllzuaiyhzegaef\|groupe_seb" . \
   --exclude-dir=.git --exclude-dir=superpowers --exclude=CLAUDE.md --exclude="INSTRUCTIVO_*.md"
 ```
 
-Quedan como inofensivos: un comentario en `setup_supabase_planta.sh`, el nombre de un test (`test_ejemplo_dvida_…`) y los filtros de encabezado en `convert_fichas_to_template.py` (`IGNORE_LABELS`).
+Quedan como inofensivos: un comentario en `setup_supabase_planta.sh`, `test_ejemplo_dvida_…` y los filtros `IGNORE_LABELS` de `convert_fichas_to_template.py`.
 
 ---
 
-## Parte 5 — `site_config.json`
+## Parte 5 — Fichas técnicas ✅ validado
 
-Editar con Claude (no a mano en el JSON para no romper comillas):
+### 5.1 Buscar el Excel, no los PDF
 
-```json
-{
-  "site_title": "QR DEXCO Mejoras PTAR",
-  "banner_title_full": "Documentación Técnica — DEXCO Mejoras PTAR",
-  "banner_title_short": "DEXCO PTAR",
-  "site_url": "https://<cuenta>.github.io/<repo>/",
-  "theme": { "...": "lo genera la GUI desde el color elegido" },
-  "logos": {
-    "left": "assets/logos/LogoRPCI.png", "left_alt": "RPCI", "left_href": "https://rpci.com.co",
-    "right": "assets/logos/LogoCliente.png", "right_alt": "DEXCO", "right_href": "<sitio de DEXCO o vacío>"
-  },
-  "supabase": { "url": "https://<ref>.supabase.co", "anon_key": "<anon key de DEXCO>" }
-}
-```
+En FANALCA las fichas llegaron como **PDF**, pero en la misma carpeta estaba el Excel del que salen (`.xlsm`) y la macro `SHEET2PDF.bas`. **El sistema lee el Excel.** Buscar primero un `.xlsm`/`.xlsx` en la carpeta de fichas. Si solo hay PDF, parar y avisar: hay que pedir el Excel (no existe lector de PDF).
 
-El `theme` que trae el archivo es el de FANALCA: cambiarlo desde la GUI (color picker) o pedirle a Claude que lo derive del color de DEXCO.
-
----
-
-## Parte 6 — Fichas técnicas
-
-### 6.1 Buscar el Excel, no los PDF
-
-En FANALCA las fichas se entregaron como **PDF**, pero en la misma carpeta estaba el Excel del que salen (`NP00043 Fichas Técnicas_Equipos STARD.xlsm`) y la macro `SHEET2PDF.bas` que genera los PDF. **El sistema lee el Excel**: no hace falta extraer nada de los PDF. Buscar primero un `.xlsm`/`.xlsx` en la carpeta de fichas.
-
-Si DEXCO solo tiene PDF (sin Excel), parar y avisarle al usuario: hay que pedir el Excel o construir un lector de PDF (no existe todavía).
-
-### 6.2 Revisar las hojas antes de convertir
-
-Listar las hojas sin abrir Excel:
+### 5.2 Revisar las hojas
 
 ```bash
 unzip -p "<fichas>.xlsm" xl/workbook.xml | grep -oP '<sheet [^>]*name="\K[^"]+'
 ```
 
-- Solo se procesan hojas con nombre `^\d{3}-[A-Z]+-` (p. ej. `600-TK-01`).
-- **Pares A/B:** se separan en dos TAGs (cada equipo con su QR e historial) cuando la hoja termina en `A_B`, `A/B` o `A-B` (este último se agregó en FANALCA: `100-P-01A-B`, `400-C-01 A-B`). Hojas tipo `400-MX-01_02_03` → 3 TAGs.
-- **Categoría por tipo:** `TK|R|F|SD` → TANQUES, `P|MX|M|C|PS` → EQUIPOS, `AIT|FIT|SV|LT` → INSTRUMENTOS. Un tipo fuera de esa lista no cae en ninguna categoría: preguntar al usuario y agregarlo en `convert_fichas_to_template.py` antes de convertir.
+- Solo se procesan hojas `^\d{3}-[A-Z]+-`.
+- **Pares A/B** → dos TAGs si la hoja termina en `A_B`, `A/B` o `A-B`. `XXX-01_02_03` → 3 TAGs.
+- **Categoría:** `TK|R|F|SD` → TANQUES, `P|MX|M|C|PS` → EQUIPOS, `AIT|FIT|SV|LT` → INSTRUMENTOS. Tipo fuera de la lista → preguntar y agregarlo en `convert_fichas_to_template.py`.
 
-### 6.3 Convertir
+### 5.3 Convertir
 
 ```bash
 cp "/mnt/d/…/<fichas>.xlsm" ~/DEXCO_QR/
@@ -192,80 +187,143 @@ python3 convert_fichas_to_template.py "<fichas>.xlsm"
 python3 generate_tag_resources_template.py
 ```
 
-- Acepta `.xlsm` directamente. La GUI y el auto-recovery de imágenes también lo detectan (arreglo de FANALCA: antes solo veían `.xlsx` y podían tomar `sabana_base.xlsx` como si fueran las fichas).
-- **Si se reconvierte después de cambiar cómo se separan los TAGs**, quedan carpetas de fotos viejas en `docs/assets/images/` (en FANALCA: `100-P-01A-B/`). Borrarlas: no se publican como fichas pero ocupan espacio y confunden.
+Si se reconvierte después de cambiar cómo se separan los TAGs, borrar las carpetas viejas que queden en `docs/assets/images/`.
 
-**Comprobar:** el log da el número de TAGs esperado por categoría y "N TAGs con imágenes". En FANALCA: 13 hojas → 15 TAGs (9 equipos, 6 tanques), 52 logos de encabezado descartados.
+**Comprobar:** TAGs por categoría y "N TAGs con imágenes". FANALCA: 13 hojas → 15 TAGs (9 equipos, 6 tanques).
 
 ---
 
-## Parte 7 — Generar el sitio
+## Parte 6 — Apariencia y generar el sitio ✅ validado
 
-**Conectar el remote antes de generar** (los QR de `urls.txt` salen del remote):
+### 6.1 Logo desde la web del cliente
+
+```bash
+curl -sL -A "Mozilla/5.0" https://<sitio-cliente>/ -o /tmp/<scratch>/index.html
+grep -oiE '<img[^>]*logo[^>]*>' /tmp/<scratch>/index.html     # buscar class="custom-logo" y variantes
+```
+
+Las webs WordPress suelen tener versiones blanco / blanco-azul / color. **Para el banner (fondo oscuro) usar la versión con texto blanco.** Guardar como `docs/assets/logos/LogoCliente.png` (y las otras como `LogoCliente_<variante>.png`). Poner `logos.right_href` = web del cliente.
+
+### 6.2 Colores desde el logo
+
+Sacar los colores dominantes del logo en versión color:
+
+```bash
+python3 -P -c "from PIL import Image;from collections import Counter;import sys
+im=Image.open(sys.argv[1]).convert('RGBA')
+print(Counter('#%02x%02x%02x'%p[:3] for p in im.getdata() if p[3]>250).most_common(6))" <logo-color>.png
+```
+
+**No usar `derive_palette` de la GUI con un color oscuro**: el fondo sale azul medio e ilegible. Armar el `theme` a mano. Plantilla usada en FANALCA (azul oscuro `#081c49` + azul `#009edd`):
+
+```json
+"theme": {
+  "accent": "<oscuro>", "accent_hover": "<oscuro un poco más claro>",
+  "banner_gradient": "linear-gradient(135deg, <oscuro> 0%, <intermedio> 55%, <más claro> 100%)",
+  "banner_text": "#ffffff", "banner_shadow": "0 4px 14px rgba(<oscuro en rgb>,0.30)",
+  "content_bg": "<tinte muy claro del color de marca>", "card_bg": "#ffffff",
+  "text": "#1f2328", "text_muted": "#57606a", "border": "<tinte claro>"
+}
+```
+
+### 6.3 `site_config.json` y generar
+
+Títulos, `site_url`, `logos`, `supabase` (url + anon key) — ver el esquema en `CLAUDE.md`. **Conectar el remote antes de generar** (los QR salen de él):
 
 ```bash
 git remote add origin https://github.com/<cuenta>/<repo>.git
 python3 excel_migrator.py plantilla_sitio.xlsx docs/
-head -3 docs/urls.txt      # deben ser https://<cuenta>.github.io/<repo>/…
+head -3 docs/urls.txt
+python3 -m pytest -q tests/ --ignore=tests/supabase && node --test tests/js/*.test.js
 ```
 
-**Tests** (sin red):
+### 6.4 Revisar en celular y escritorio (sin servidor)
 
 ```bash
-python3 -m pytest -q tests/ --ignore=tests/supabase
-node --test tests/js/*.test.js
+B=$(find ~/.cache/ms-playwright -name chrome-headless-shell -type f | head -1)
+$B --no-sandbox --hide-scrollbars --window-size=390,800  --screenshot=/tmp/<scratch>/home_390.png  file://$PWD/docs/index.html
+$B --no-sandbox --hide-scrollbars --window-size=1280,800 --screenshot=/tmp/<scratch>/home_1280.png file://$PWD/docs/index.html
 ```
 
-`tests/test_generator_feed.py` ya no tiene fijo el número de TAGs de D'Vida (42): compara contra `migration_metadata.json`.
+Los emojis salen como cuadros vacíos en el headless (no tiene la fuente); en celulares reales se ven.
 
 ---
 
-## Parte 8 — Supabase de DEXCO ⏳ pendiente de validar en FANALCA
+## Parte 7 — Publicar ✅ validado
 
-Seguir la Parte 3 de [INSTRUCTIVO_NUEVO_PROYECTO.md](INSTRUCTIVO_NUEVO_PROYECTO.md): `./setup_supabase_planta.sh <ref>`, cerrar el auto-registro, crear usuarios + fila en `profiles`, revisar backups.
-
-Mientras no se apliquen las migraciones, las fichas se ven bien pero la sección de historial muestra error.
-
----
-
-## Parte 9 — Publicar ✅ validado en FANALCA (2026-11-17)
-
-1. `gh auth status` → cuenta de DEXCO activa. **Y** `git config user.email` dentro del repo debe ser el Gmail de DEXCO: si no se hizo el paso 3.1, git firma con el correo global personal.
-2. `gh repo create <cuenta>/<repo> --public` (si no existe; vacío, sin README).
-3. `docs/superpowers/` (specs del sistema) no se publica: ya viene en `.gitignore` desde FANALCA. Se queda en disco, no sube.
-4. `git status`: que no aparezcan `.env`, `.env.test` ni nada con la `service_role`. Commit inicial.
-5. Con confirmación: `git push -u origin master`.
+1. `gh auth status` → DEXCO activa; `git config user.email` → Gmail de DEXCO.
+2. `gh repo create <cuenta>/<repo> --public --description "QR fichas técnicas y mantenimientos — <planta>"`.
+3. `docs/superpowers/` ya viene en `.gitignore` (no se publica).
+4. **`git status` completo** — revisar que no entre nada inesperado (documentos del cliente, `.env`, `.env.test`, claves).
+5. Commit + (con confirmación) `git push -u origin master`.
 6. Pages: `gh api -X POST repos/<cuenta>/<repo>/pages -f "source[branch]=master" -f "source[path]=/docs"`.
-7. `gh api repos/<cuenta>/<repo>/pages/builds/latest --jq .status` → `built`; abrir la URL y probar en celular.
+7. Comprobar con la Parte 10.
 
 ---
 
-## Parte 10 — Módulo administrativo web ⏳ en diseño (FANALCA)
+## Parte 8 — Supabase ⏳ en curso en FANALCA
 
-FANALCA pidió que la configuración (parámetros, rutinas de mantenimiento, etc.) se haga desde un módulo administrativo **en el sitio web**, con login de Supabase, en vez de la GUI de escritorio (`gui.py`). Cuando esté construido en FANALCA, viene en el código clonado; aquí se documentará cómo activarlo para DEXCO.
+### 8.1 Migraciones (las corre el usuario: piden la contraseña de la base)
+
+```bash
+chmod +x setup_supabase_planta.sh
+./setup_supabase_planta.sh <ref>
+```
+
+Pide, en orden: el ref otra vez (confirmación), la **contraseña de la base** (`supabase link`) y `Y` para las 12 migraciones (`db push`).
+
+**Comprobar** (Claude, ya con el proyecto linkeado): `tablas: 10`, `vistas: 3`, `bucket: 1` — consulta en la Parte 3.2 de [INSTRUCTIVO_NUEVO_PROYECTO.md](INSTRUCTIVO_NUEVO_PROYECTO.md).
+
+### 8.2 Resto ⏳
+
+Cerrar auto-registro, crear usuarios + `profiles`, backups: Parte 3.3–3.5 de [INSTRUCTIVO_NUEVO_PROYECTO.md](INSTRUCTIVO_NUEVO_PROYECTO.md). Se documentará aquí cuando se haga en FANALCA.
+
+---
+
+## Parte 9 — Rutinas y módulo administrativo web ⏳ en diseño (FANALCA)
+
+- FANALCA entregó su plan y manual de mantenimiento (`MP-02 .xls`, `MP-03 .docx`). La idea es cargar las rutinas desde ahí en vez de la `sabana_base.xlsx` genérica.
+- FANALCA pidió que la configuración (parámetros, rutinas, etc.) se haga desde un **módulo administrativo en el sitio web** con login de Supabase, en vez de la GUI de escritorio. Cuando exista, vendrá en el código clonado y aquí se documentará cómo activarlo.
+
+---
+
+## Parte 10 — Cada vez que se actualiza el sitio
+
+Pages publica solo con cada push (Action **"pages build and deployment"**, ~30 s). No activar `.github/workflows/main.yml.disabled` (resto incompleto de D'Vida). Después del push, **un** comando en segundo plano:
+
+```bash
+gh run watch -R <cuenta>/<repo> $(gh run list -R <cuenta>/<repo> -L1 --json databaseId -q '.[0].databaseId') --exit-status >/dev/null 2>&1 \
+  && echo "✅ Pages publicado" || echo "❌ Pages falló"
+```
+
+Reportar solo esa línea. Si falla: `gh run view <id> --log-failed`.
 
 ---
 
 ## Parte 11 — QR y cierre
 
-- Generar los QR desde `docs/urls.txt` **solo con el repo definitivo publicado**.
+- Generar los QR desde `docs/urls.txt` **solo con el sitio completo** (Supabase y usuarios funcionando).
 - Adaptar `CLAUDE.md` a DEXCO (remote, URL, Supabase ref, Excel de origen, estado de archivos).
-- Guardar en la memoria de Claude qué cuentas de GitHub/Supabase son las de DEXCO.
+- Guardar en la memoria de Claude las cuentas de DEXCO.
 
 ---
 
 ## Seguridad
 
-- En FANALCA la contraseña de Supabase estaba en un `Datos.txt` dentro de la carpeta compartida del proyecto. **No repetirlo:** las contraseñas van en un gestor de contraseñas. Claude no las copia a ningún archivo.
+- En FANALCA la contraseña de Supabase estaba en `QR/Datos.txt` dentro de la carpeta compartida. **No repetirlo:** gestor de contraseñas.
 - La `anon` key sí es pública (va en el sitio); la protege RLS.
 
 ## Problemas encontrados en FANALCA
 
 | Síntoma | Causa | Solución |
 |---|---|---|
-| Un par A/B sale como un solo TAG | Hoja con `A-B` (guion) | Ya soportado; si aparece otra variante, ampliar el patrón en `expand_tags_from_sheet_name` |
-| "Forzar regeneración" toma la sábana como fichas | La detección solo miraba `*.xlsx` y no excluía `sabana_base.xlsx` | Arreglado (`list_fichas_candidates` en `excel_migrator.py`) |
-| `pytest` no existe | Falta `requirements-dev.txt` | Parte 2 |
-| `test_feed_page_embeds_tag_index` falla con `15 == 42` | Test con número fijo de D'Vida | Arreglado (lee `migration_metadata.json`) |
-| Supabase MCP: "You do not have permission" | Conector en otra cuenta | Usar `supabase` CLI con la cuenta del proyecto |
-| `rm` bloqueado por "Dangerous rm operation" | Glob relativo después de `cd` | Rutas absolutas |
+| Un par A/B sale como un solo TAG | Hoja con `A-B` (guion) | Ya soportado |
+| "Forzar regeneración" toma la sábana como fichas | Detección solo `*.xlsx`, sin excluir `sabana_base.xlsx` | Arreglado (`list_fichas_candidates`) |
+| `pytest` no existe | Falta `requirements-dev.txt` | Parte 1 |
+| `test_feed_page_embeds_tag_index`: `15 == 42` | Número fijo de D'Vida | Arreglado (lee `migration_metadata.json`) |
+| Supabase MCP: "You do not have permission" | Conector en otra cuenta | CLI, o `.mcp.json` del proyecto (Parte 1) |
+| `rm` bloqueado: "Dangerous rm operation" | Glob relativo después de `cd` | Rutas absolutas |
+| `python3 -I` no encuentra `PIL` | `-I` ignora `~/.local` | Usar `python3 -P` (y correr fuera de carpetas con archivos descargados) |
+| Fondo del sitio ilegible con color oscuro | `derive_palette` aclara +0.45 desde un color muy oscuro | Tema a mano (Parte 6.2) |
+| Commits firmados con el correo personal | `user.email` global | `git config user.email` local (Parte 3.1) |
+| Documentos del cliente subidos sin querer | `git add -A` sin revisar | Mirar `git status` completo antes de cada commit |
