@@ -24,7 +24,8 @@ Pasos para montar el sitio de fichas técnicas con QR + mantenimientos (Supabase
 - **Nunca** manejes contraseñas del usuario: los pasos que piden la contraseña de la base (`supabase link`) los corre el usuario en su terminal.
 - **Antes de cada commit, mira `git status` completo** — no hagas `git add -A` a ciegas. En FANALCA se subieron dos documentos del cliente (`Assets/Mantenimiento/`) sin revisarlos; el usuario decidió dejarlos públicos, pero debió decidirlo antes.
 - **Después de cada push**, confirma el Action de Pages con **un solo** comando en segundo plano y reporta una línea (ver Parte 10). No hagas polling ni leas logs salvo que falle.
-- Español en todo. Rama `master`. Celular primero: probar a 360 y 390 px.
+- Español en todo. Rama `master`.
+- **Celular primero, siempre.** Los técnicos registran todo desde el celular. Toda pantalla nueva (sitio, administración, formularios) se diseña para celular y se prueba a 360 y 390 px antes que en escritorio: botones grandes, lo importante arriba, nada cortado, búsqueda por TAG a mano.
 - **Borrar con rutas absolutas.** La protección de Claude Code bloquea `rm -rf carpeta/*` después de un `cd`. Usa `rm -rf "/home/<usuario>/<proyecto>/docs/assets/images"` y luego `mkdir -p`.
 
 ---
@@ -307,7 +308,10 @@ No hay `.exe`: `windows_launchers/*.bat` arrancan `gui.py` en WSL y abren `local
 
 - **Roles:** `tecnico` registra eventos de mantenimiento; `oficina` hace lo administrativo y las utilidades futuras. Personas de la planta y de RPCI entran con **usuarios distintos** de cualquiera de los dos roles (no hay un rol aparte para RPCI).
 - **Administración online:** lo de `gui.py` pasa al sitio web con login de Supabase, **incluida la gestión completa de usuarios** (crear con el rol elegido, etc.). GitHub Pages no ejecuta Python, así que se reescribe como páginas del sitio que hablan con Supabase; crear usuarios va por una Edge Function (la `service_role` nunca llega al navegador).
-- **Tipos de mantenimiento:** por cada **tipo de equipo** (bomba centrífuga, sumergible, dosificadora, agitador, soplador…) **máximo 4 tipos de mantenimiento**.
+- **Rutinas por tipo de equipo:** para cada **tipo de equipo** (bomba sumergible, soplador, bomba neumática, filtro prensa, tanque…) se eligen las **4 o 5 rutinas más importantes** del programa del cliente (MP-02), preferiblemente de **frecuencia mensual o mayor** (M, BM, TM, SM, A o por horas). Lo diario y semanal queda fuera del sistema. Máximo 5 por tipo.
+- **Registro siempre desde el celular**, y los registros deben ser **fáciles de encontrar por TAG**.
+- **TAGs que comparten ficha (pares A/B) son equipos distintos para mantenimiento:** cada uno tiene sus propios registros y, más adelante, su propio calendario (la titular y la de respaldo no se mantienen igual). La ficha puede ser la misma; el historial no.
+- Tipos de equipo **sin rutinas en el MP-02** (en FANALCA: compresor de pistón `100-C-01` y mezclador axial `400-MX-01`): pedirlas al cliente o tomarlas del manual del fabricante; no inventarlas.
 - **Calendario/programación:** fuera por ahora; se propondrá después.
 
 Cuando el módulo exista, vendrá en el código clonado y aquí se documentará cómo activarlo para DEXCO.
