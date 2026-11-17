@@ -1,0 +1,15 @@
+EQUIPO,https://fanalca-rpci.github.io/fanalca-rpci/equipos/100-C-01.html
+EQUIPO,https://fanalca-rpci.github.io/fanalca-rpci/equipos/100-P-01A.html
+EQUIPO,https://fanalca-rpci.github.io/fanalca-rpci/equipos/100-P-01B.html
+EQUIPO,https://fanalca-rpci.github.io/fanalca-rpci/equipos/400-C-01A.html
+EQUIPO,https://fanalca-rpci.github.io/fanalca-rpci/equipos/400-C-01B.html
+EQUIPO,https://fanalca-rpci.github.io/fanalca-rpci/equipos/400-MX-01.html
+EQUIPO,https://fanalca-rpci.github.io/fanalca-rpci/equipos/600-P-01.html
+EQUIPO,https://fanalca-rpci.github.io/fanalca-rpci/equipos/600-P-02.html
+EQUIPO,https://fanalca-rpci.github.io/fanalca-rpci/equipos/803-P-01.html
+TANQUE,https://fanalca-rpci.github.io/fanalca-rpci/tanques/400-R-01.html
+TANQUE,https://fanalca-rpci.github.io/fanalca-rpci/tanques/500-TK-01.html
+TANQUE,https://fanalca-rpci.github.io/fanalca-rpci/tanques/600-SD-01.html
+TANQUE,https://fanalca-rpci.github.io/fanalca-rpci/tanques/600-TK-01.html
+TANQUE,https://fanalca-rpci.github.io/fanalca-rpci/tanques/600-TK-02.html
+TANQUE,https://fanalca-rpci.github.io/fanalca-rpci/tanques/803-TK-01.html

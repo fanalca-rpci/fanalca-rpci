@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#20c975">
+    <title>Últimos mantenimientos — QR PTAR FANALCA</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="maintenance.css">
+    <script>
+        window.__SUPABASE_CONFIG__ = {
+            url: "https://bcpthbpbyyrlemvbrshp.supabase.co",
+            anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjcHRoYnBieXlybGVtdmJyc2hwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5NDMxNDUsImV4cCI6MjExMDUxOTE0NX0.3SYRPLNpflytSSW86zX7bJm6EWRto4qEcSi3stvvTGc"
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <link rel="stylesheet" href="maintenance_feed.css">
+</head>
+<body data-rel="">
+    <div class="sidebar-backdrop" aria-hidden="true"></div>
+    <header class="banner">
+        <button class="menu-toggle" aria-label="Abrir menú" aria-controls="sidebar" aria-expanded="false">☰</button>
+        <a class="home-btn" href="index.html" aria-label="Inicio">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 10.5L12 3l9 7.5"/>
+                <path d="M5 9.5V21h5v-6h4v6h5V9.5"/>
+            </svg>
+        </a>
+        <a class="banner-logo banner-logo-left" href="https://rpci.com.co" target="_blank" rel="noopener" aria-label="RPCI">
+            <img class="banner-logo-img" src="assets/logos/LogoRPCI.png" alt="RPCI">
+        </a>
+        <h1 class="banner-title">
+            <span class="banner-title-full">Documentación Técnica — PTAR FANALCA</span>
+            <span class="banner-title-short">PTAR FANALCA</span>
+        </h1>
+        <div class="banner-logo banner-logo-right" aria-label="FANALCA"><img class="banner-logo-img" src="assets/logos/LogoCliente.png" alt="FANALCA"></div>
+        <button class="search-toggle" aria-label="Buscar" aria-controls="search-modal" aria-expanded="false">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="7"/>
+                <line x1="21" y1="21" x2="16.5" y2="16.5"/>
+            </svg>
+        </button>
+    </header>
+    <div class="lightbox" id="lightbox" hidden role="dialog" aria-label="Galería de imágenes" aria-modal="true">
+        <div class="lightbox-overlay" aria-hidden="true"></div>
+        <button class="lightbox-close" aria-label="Cerrar galería">✕</button>
+        <button class="lightbox-prev" aria-label="Imagen anterior">‹</button>
+        <button class="lightbox-next" aria-label="Imagen siguiente">›</button>
+        <figure class="lightbox-figure">
+            <img class="lightbox-img" alt="">
+            <figcaption class="lightbox-caption"></figcaption>
+        </figure>
+        <div class="lightbox-counter" aria-live="polite">1 / 1</div>
+    </div>
+    <div class="search-modal" id="search-modal" hidden role="dialog" aria-label="Búsqueda" aria-modal="true">
+        <div class="search-modal-overlay" aria-hidden="true"></div>
+        <div class="search-modal-box" role="document">
+            <div class="search-modal-head">
+                <svg class="search-modal-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="11" cy="11" r="7"/>
+                    <line x1="21" y1="21" x2="16.5" y2="16.5"/>
+                </svg>
+                <input type="search" class="search-input" placeholder="Buscar TAG, función, marca…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Buscar">
+                <button class="search-modal-close" aria-label="Cerrar búsqueda">✕</button>
+            </div>
+            <div class="search-results" aria-live="polite"></div>
+            <div class="search-hint">
+                <kbd>Esc</kbd> para cerrar
+            </div>
+        </div>
+    </div>
+    <div class="layout">
+        <aside class="sidebar" id="sidebar">
+            <div class="brand">
+                <a href="index.html">
+                    <h1>QR PTAR FANALCA</h1>
+                </a>
+                <button class="sidebar-close" aria-label="Cerrar menú">✕</button>
+            </div>
+            <nav class="nav"><ul class="nav-list">
+<li class="nav-feed"><a class="nav-link-feed active" href="mantenimientos.html">🛠 Últimos mantenimientos</a></li>
+<li class="nav-group">
+<div class="nav-cat-row">
+<button class="nav-cat" aria-expanded="false">EQUIPOS</button>
+</div>
+<a class="nav-cat-link" href="equipos/index.html">Ver categoría completa →</a>
+<ul class="nav-items">
+<li><a href="equipos/100-C-01.html">100-C-01</a></li>
+<li><a href="equipos/100-P-01A.html">100-P-01A</a></li>
+<li><a href="equipos/100-P-01B.html">100-P-01B</a></li>
+<li><a href="equipos/400-C-01A.html">400-C-01A</a></li>
+<li><a href="equipos/400-C-01B.html">400-C-01B</a></li>
+<li><a href="equipos/400-MX-01.html">400-MX-01</a></li>
+<li><a href="equipos/600-P-01.html">600-P-01</a></li>
+<li><a href="equipos/600-P-02.html">600-P-02</a></li>
+<li><a href="equipos/803-P-01.html">803-P-01</a></li>
+</ul></li>
+<li class="nav-group">
+<div class="nav-cat-row">
+<button class="nav-cat" aria-expanded="false">TANQUES</button>
+</div>
+<a class="nav-cat-link" href="tanques/index.html">Ver categoría completa →</a>
+<ul class="nav-items">
+<li><a href="tanques/400-R-01.html">400-R-01</a></li>
+<li><a href="tanques/500-TK-01.html">500-TK-01</a></li>
+<li><a href="tanques/600-SD-01.html">600-SD-01</a></li>
+<li><a href="tanques/600-TK-01.html">600-TK-01</a></li>
+<li><a href="tanques/600-TK-02.html">600-TK-02</a></li>
+<li><a href="tanques/803-TK-01.html">803-TK-01</a></li>
+</ul></li>
+</ul></nav>
+        </aside>
+        <main class="content">
+            <article>
+<header class="page-header"><h1>Últimos mantenimientos</h1>
+<p class="subtitle">Los mantenimientos más recientes de todos los equipos</p></header>
+<div class="feed-mode" role="tablist" aria-label="Vista">
+<button type="button" class="feed-mode-btn active" role="tab" data-mode="realizados" aria-selected="true">Realizados</button>
+<button type="button" class="feed-mode-btn" role="tab" data-mode="programados" aria-selected="false" id="feed-mode-programados">Programados</button>
+</div>
+<div class="feed-agenda-controls" id="feed-agenda-controls" hidden>
+<div class="feed-agenda-summary" id="feed-agenda-summary" aria-live="polite"></div>
+<label class="feed-filter">Ver <select id="feed-agenda-filter"></select></label>
+</div>
+<div class="feed-controls">
+<div class="feed-search">
+<input type="search" id="feed-search" placeholder="Buscar por TAG o elemento…" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Buscar mantenimientos por TAG o elemento">
+<button type="button" class="feed-search-clear" id="feed-search-clear" hidden aria-label="Limpiar búsqueda">✕</button>
+</div>
+<div class="feed-tabs" role="tablist" aria-label="Categoría">
+<button type="button" class="feed-tab active" role="tab" data-cat="TODOS" aria-selected="true" tabindex="0">Todos</button>
+<button type="button" class="feed-tab" role="tab" data-cat="EQUIPOS" aria-selected="false" tabindex="-1">EQUIPOS</button>
+<button type="button" class="feed-tab" role="tab" data-cat="TANQUES" aria-selected="false" tabindex="-1">TANQUES</button>
+<button type="button" class="feed-tab" role="tab" data-cat="INSTRUMENTOS" aria-selected="false" tabindex="-1">INSTRUMENTOS</button>
+</div>
+</div>
+<div class="feed-list" id="feed-list" aria-live="polite"></div>
+<div class="feed-more"><button type="button" class="maint-btn maint-btn-secondary" id="feed-more" hidden>Cargar más</button></div>
+<script>window.__TAG_INDEX__ = [{"tag": "100-C-01", "categoria": "EQUIPOS", "servicio": "Aire comprimido", "filename": "100-C-01.html"}, {"tag": "100-P-01A", "categoria": "EQUIPOS", "servicio": "Tratamiento de agua residual doméstica", "filename": "100-P-01A.html"}, {"tag": "100-P-01B", "categoria": "EQUIPOS", "servicio": "Tratamiento de agua residual doméstica", "filename": "100-P-01B.html"}, {"tag": "400-C-01A", "categoria": "EQUIPOS", "servicio": "AIRE", "filename": "400-C-01A.html"}, {"tag": "400-C-01B", "categoria": "EQUIPOS", "servicio": "AIRE", "filename": "400-C-01B.html"}, {"tag": "400-MX-01", "categoria": "EQUIPOS", "servicio": "Aire", "filename": "400-MX-01.html"}, {"tag": "400-R-01", "categoria": "TANQUES", "servicio": "Reactor Biológico MBBR", "filename": "400-R-01.html"}, {"tag": "500-TK-01", "categoria": "TANQUES", "servicio": "Agua clarificada", "filename": "500-TK-01.html"}, {"tag": "600-P-01", "categoria": "EQUIPOS", "servicio": "Trasiego de lodos biológicos", "filename": "600-P-01.html"}, {"tag": "600-P-02", "categoria": "EQUIPOS", "servicio": "Trasiego de lodos desde tanque de acondicionamiento de lodos hasta filtro prensa", "filename": "600-P-02.html"}, {"tag": "600-SD-01", "categoria": "TANQUES", "servicio": "Deshidratación de lodos", "filename": "600-SD-01.html"}, {"tag": "600-TK-01", "categoria": "TANQUES", "servicio": "Lodos biológicos", "filename": "600-TK-01.html"}, {"tag": "600-TK-02", "categoria": "TANQUES", "servicio": "Lodos biológicos", "filename": "600-TK-02.html"}, {"tag": "803-P-01", "categoria": "EQUIPOS", "servicio": "Bomba dosificadora", "filename": "803-P-01.html"}, {"tag": "803-TK-01", "categoria": "TANQUES", "servicio": "Polímero deshidratante", "filename": "803-TK-01.html"}];</script>
+            </article>
+        </main>
+    </div>
+    <script src="search-index.js"></script>
+    <script src="script.js"></script>
+    <script src="maintenance_agenda.js"></script>
+    <script src="maintenance.js"></script>
+    <script src="maintenance_feed.js"></script>
+</body>
+</html>

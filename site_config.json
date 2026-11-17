@@ -1,0 +1,30 @@
+{
+  "site_title": "QR PTAR FANALCA",
+  "banner_title_full": "Documentación Técnica — PTAR FANALCA",
+  "banner_title_short": "PTAR FANALCA",
+  "site_url": "https://fanalca-rpci.github.io/fanalca-rpci/",
+  "theme": {
+    "accent": "#20c975",
+    "accent_hover": "#189d5b",
+    "banner_gradient": "linear-gradient(135deg, #7eeab4 0%, #20c975 60%, #1aa560 100%)",
+    "banner_text": "#ffffff",
+    "banner_shadow": "0 4px 14px rgba(32,201,117,0.25)",
+    "content_bg": "#d6f8e7",
+    "card_bg": "#ffffff",
+    "text": "#1f2328",
+    "text_muted": "#57606a",
+    "border": "#c0f4da"
+  },
+  "logos": {
+    "left": "assets/logos/LogoRPCI.png",
+    "left_alt": "RPCI",
+    "left_href": "https://rpci.com.co",
+    "right": "assets/logos/LogoCliente.png",
+    "right_alt": "FANALCA",
+    "right_href": ""
+  },
+  "supabase": {
+    "url": "https://bcpthbpbyyrlemvbrshp.supabase.co",
+    "anon_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjcHRoYnBieXlybGVtdmJyc2hwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5NDMxNDUsImV4cCI6MjExMDUxOTE0NX0.3SYRPLNpflytSSW86zX7bJm6EWRto4qEcSi3stvvTGc"
+  }
+}
