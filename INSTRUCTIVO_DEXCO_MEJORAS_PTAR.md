@@ -58,6 +58,7 @@ Claude revisa esto al inicio y avisa lo que falte. En el laptop de FANALCA ya es
 | ✅ `supabase` CLI | Aplicar migraciones | `supabase --version` | `.deb` de https://github.com/supabase/cli/releases |
 | ✅ `rsync`, `unzip`, `curl` | Copiar código, leer hojas del Excel, bajar el logo | `which rsync unzip curl` | `sudo apt install -y rsync unzip curl` |
 | ✅ Chromium headless | Capturas a 390/1280 px para revisar el sitio | `ls ~/.cache/ms-playwright/` | `npx playwright install chromium-headless-shell` |
+| ✅ `xlrd` | Leer el programa de mantenimiento del cliente si viene en `.xls` viejo (openpyxl no lo abre) | `python3 -c "import xlrd"` | `pip3 install --break-system-packages xlrd` |
 | ☐ Docker | Solo para tests de RLS en local (`supabase start`) | `docker info` | Docker Desktop con WSL integration |
 | ☐ **Sesión `gh` con la cuenta de DEXCO** | Push al repo correcto | `gh auth status` | Parte 3.1 (la hace el usuario: abre navegador) |
 | ☐ **Sesión `supabase` con la cuenta de DEXCO** | Migraciones | `supabase projects list` muestra el ref de DEXCO | `supabase login` (la hace el usuario) |
@@ -282,8 +283,34 @@ Cerrar auto-registro, crear usuarios + `profiles`, backups: Parte 3.3–3.5 de [
 
 ## Parte 9 — Rutinas y módulo administrativo web ⏳ en diseño (FANALCA)
 
-- FANALCA entregó su plan y manual de mantenimiento (`MP-02 .xls`, `MP-03 .docx`). La idea es cargar las rutinas desde ahí en vez de la `sabana_base.xlsx` genérica.
-- FANALCA pidió que la configuración (parámetros, rutinas, etc.) se haga desde un **módulo administrativo en el sitio web** con login de Supabase, en vez de la GUI de escritorio. Cuando exista, vendrá en el código clonado y aquí se documentará cómo activarlo.
+### 9.1 Documentos de mantenimiento del cliente
+
+Pedirlos junto con las fichas. En FANALCA (carpeta del proyecto `INGENIERIA\5. M mant`, copiados a `Assets/Mantenimiento/`):
+
+| Documento | Qué trae | Cómo leerlo |
+|---|---|---|
+| `…-MP-02-….xls` — Programa de mantenimiento preventivo | Por **tipo de equipo** (bombas sumergibles, sopladores, bombas neumáticas, difusores, tanques, filtro prensa, tablero, tubería…): lista de operaciones con frecuencia `D/S/Q/M/BM/TM/SM/A` (diario … anual; `NA` = por horas según fabricante) | `xlrd` (es `.xls` viejo) |
+| `…-MP-03-….docx` — Listado de repuestos | Por tipo de equipo: TAGs, marca/modelo, función y repuestos críticos/importantes/opcionales con cantidades | `unzip -p <docx> word/document.xml` y quitar etiquetas |
+
+El MP-02 trae **más de 4 operaciones por tipo de equipo** (bombas sumergibles: 9; sopladores: 15). Ver 9.3 sobre cómo se agrupan.
+
+### 9.2 Qué hacía la GUI de escritorio (para no perder nada al pasarla a la web)
+
+No hay `.exe`: `windows_launchers/*.bat` arrancan `gui.py` en WSL y abren `localhost:8080` (con acceso directo en el escritorio).
+
+- **Principal:** carpeta destino, logo + enlace, título, color, subir Excel de fichas y `TAG_RESOURCES.xlsx`, "Forzar regeneración", **Generar sitio**, **Ver sitio** (publicar era `git push` aparte).
+- **🧰 Mantenimientos** (login): historial por TAG, registrar (horas HMI, actividades, fotos, audio), comentarios; oficina edita/borra.
+- **📋 Plan de mantenimiento** (login, oficina): sábana (clases y actividades), equipos (clase + régimen A/B, auto-asignar), agenda (vencidos, programar, reprogramar con motivo, programar en lote).
+- **No tenía** gestión de usuarios (se creaban a mano en Supabase).
+
+### 9.3 Decidido en FANALCA (2026-11-17)
+
+- **Roles:** `tecnico` registra eventos de mantenimiento; `oficina` hace lo administrativo y las utilidades futuras. Personas de la planta y de RPCI entran con **usuarios distintos** de cualquiera de los dos roles (no hay un rol aparte para RPCI).
+- **Administración online:** lo de `gui.py` pasa al sitio web con login de Supabase, **incluida la gestión completa de usuarios** (crear con el rol elegido, etc.). GitHub Pages no ejecuta Python, así que se reescribe como páginas del sitio que hablan con Supabase; crear usuarios va por una Edge Function (la `service_role` nunca llega al navegador).
+- **Tipos de mantenimiento:** por cada **tipo de equipo** (bomba centrífuga, sumergible, dosificadora, agitador, soplador…) **máximo 4 tipos de mantenimiento**.
+- **Calendario/programación:** fuera por ahora; se propondrá después.
+
+Cuando el módulo exista, vendrá en el código clonado y aquí se documentará cómo activarlo para DEXCO.
 
 ---
 
