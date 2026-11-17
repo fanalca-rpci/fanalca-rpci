@@ -287,7 +287,28 @@ chmod +x setup_supabase_planta.sh
 
 Pide, en orden: el ref otra vez (confirmación), la **contraseña de la base** (`supabase link`) y `Y` para las 12 migraciones (`db push`).
 
-**Comprobar** (Claude, ya con el proyecto linkeado): `tablas: 10`, `vistas: 3`, `bucket: 1` — consulta en la Parte 3.2 de [INSTRUCTIVO_NUEVO_PROYECTO.md](INSTRUCTIVO_NUEVO_PROYECTO.md).
+**En FANALCA el `link` funcionó pero el `db push` no aplicó nada.** Una vez linkeado, Claude puede terminarlo **sin contraseña** (la CLI usa un rol de login temporal):
+
+```bash
+supabase migration list --linked          # columna "remote" vacía = no se aplicó
+supabase db push --linked --dry-run       # muestra las 12
+supabase db push --linked --yes
+```
+
+El aviso final *"failed to cache migrations catalog … pgdelta-target-ca.crt"* es de una caché local: **no afecta**. Verificar siempre con la consulta.
+
+**Comprobar** (Claude):
+
+```bash
+supabase db query --linked "select
+  (select count(*) from information_schema.tables where table_schema='public' and table_type='BASE TABLE' and table_name in ('profiles','maintenance_records','maintenance_attachments','maintenance_comments','maintenance_audit_log','equipment_classes','maintenance_activities','equipment_tags','maintenance_record_activities','maintenance_manual_schedule')) as tablas,
+  (select count(*) from information_schema.views where table_schema='public' and table_name in ('author_names','maintenance_schedule','maintenance_agenda')) as vistas,
+  (select count(*) from storage.buckets where id='maintenance-attachments') as bucket,
+  (select count(*) from auth.users) as usuarios,
+  (select count(*) from public.profiles) as perfiles"
+```
+
+Esperado: `tablas 10`, `vistas 3`, `bucket 1`. ✅ Validado en FANALCA (2026-11-17).
 
 ### 8.2 Resto ⏳
 
