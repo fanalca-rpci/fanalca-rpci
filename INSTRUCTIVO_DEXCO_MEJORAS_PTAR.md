@@ -368,6 +368,18 @@ supabase db query --linked "select c.name, count(a.*) rutinas from public.equipm
 
 Cuando el módulo exista, vendrá en el código clonado y aquí se documentará cómo activarlo para DEXCO.
 
+### 9.5 Administración web por perfiles ⏳ plan aprobado en FANALCA (2026-11-18), en construcción
+
+- **El usuario administra solo desde el celular.** Nada administrativo puede depender de `gui.py`; la GUI de escritorio queda solo para generar el sitio desde el Excel.
+- **URL dedicada:** `https://<cuenta>.github.io/<repo>/admin/` (ítem "⚙️ Administración" al final del menú ☰). Login con usuario y contraseña de Supabase.
+- **Pantallas según perfil** (barra inferior, máx. 5):
+  - `oficina`: 🏠 Resumen · 📋 Registros · 🔧 Rutinas · ⚙️ Equipos · ☰ Más (👥 Usuarios, 🔑 Mi cuenta).
+  - `tecnico`: 🏠 Resumen · 📋 Mis registros · 🔑 Mi cuenta.
+- **Pensado para 1 millón de registros:** "última vez" por TAG × rutina en tabla (`maintenance_last_done`), índices por TAG + fecha, paginación por cursor, búsqueda con filtros (TAG, rutina, fechas, texto, autor, con fotos) en vista emergente con chips.
+- **Próximo mantenimiento por rutina** en la ficha (una línea + vista emergente), franja de vencidos en el inicio y punto de color por TAG.
+- Diseño: [specs/2026-11-17-administracion-web-design.md](specs/2026-11-17-administracion-web-design.md). Planes: [plans/2026-11-18-administracion-web.md](plans/2026-11-18-administracion-web.md) (maestro), [plans/2026-11-17-fase1-usuarios.md](plans/2026-11-17-fase1-usuarios.md), [plans/2026-11-18-proximos-y-busqueda.md](plans/2026-11-18-proximos-y-busqueda.md).
+- **Para DEXCO, cuando esté terminado:** `supabase db push --linked` (migraciones nuevas) + `supabase functions deploy admin-users --project-ref <ref> --use-api` + regenerar el sitio. La prueba de aceptación se hace **desde el celular** (Task A8 del plan maestro). Esta sección se completa con lo aprendido al terminar FANALCA.
+
 ---
 
 ## Parte 10 — Cada vez que se actualiza el sitio
