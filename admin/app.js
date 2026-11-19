@@ -54,6 +54,43 @@
         return t.filename ? SITE_ROOT + t.categoria.toLowerCase() + '/' + t.filename : SITE_ROOT;
     }
 
+    var libs = {};
+    function loadLib(url) {
+        if (!libs[url]) {
+            libs[url] = new Promise(function (resolve, reject) {
+                var sc = document.createElement('script');
+                sc.src = url; sc.onload = resolve; sc.onerror = function () { delete libs[url]; reject(new Error('Sin conexión')); };
+                document.head.appendChild(sc);
+            });
+        }
+        return libs[url];
+    }
+    var JSZIP_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    var QR_URL = 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js';
+
+    function shrinkImage(file, max) {
+        return new Promise(function (resolve) {
+            if (!/^image\/(jpeg|png|webp)/.test(file.type)) return resolve(file);
+            var img = new Image();
+            img.onload = function () {
+                var k = Math.min(1, max / Math.max(img.width, img.height));
+                var c = document.createElement('canvas');
+                c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+                c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+                c.toBlob(function (b) { URL.revokeObjectURL(img.src); resolve(b || file); }, 'image/jpeg', 0.75);
+            };
+            img.onerror = function () { resolve(file); };
+            img.src = URL.createObjectURL(file);
+        });
+    }
+
+    var sabana = null;
+    function loadSabana() {
+        if (!sabana) sabana = fetch('sabana_base.json').then(function (r) { return r.ok ? r.json() : { classes: [], activities: [] }; })
+            .catch(function () { return { classes: [], activities: [] }; });
+        return sabana;
+    }
+
     var toastTimer = null;
     function toast(msg, kind) {
         var box = document.getElementById('adm-toast');
@@ -237,7 +274,7 @@
     function route() {
         if (!state.profile) return;
         var res = L.resolve(location.hash, state.profile.role);
-        var navId = res.id === 'usuarios' || res.id === 'sitio' || (res.id === 'cuenta' && state.profile.role === 'oficina') ? 'mas' : res.id;
+        var navId = res.id === 'usuarios' || res.id === 'sitio' || res.id === 'qr' || (res.id === 'cuenta' && state.profile.role === 'oficina') ? 'mas' : res.id;
         Array.prototype.forEach.call(nav.querySelectorAll('a'), function (a) {
             a.classList.toggle('is-active', a.dataset.id === navId);
             if (a.dataset.id === navId) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
@@ -533,6 +570,7 @@
             '<button type="button" class="adm-fab" id="cls-new" aria-label="Nuevo tipo de equipo">＋ Tipo de equipo</button>';
         box.querySelector('#cls-new').addEventListener('click', newClass);
         loadCatalog().then(function (cat) {
+            box.querySelector('.adm-muted').insertAdjacentElement('afterend', button('📥 Importar rutinas base', 'is-ghost is-block', function () { importSabana(cat); }));
             var list = box.querySelector('#cls');
             list.innerHTML = '';
             if (!cat.classes.length) { list.innerHTML = empty('🔧', 'Todavía no hay tipos de equipo.'); return; }
@@ -691,7 +729,11 @@
                 var q = L.fold(input.value);
                 var rows = TAGS.filter(function (t) { return !q || L.fold(t.tag + ' ' + t.servicio).indexOf(q) !== -1; });
                 var missing = TAGS.filter(function (t) { return !byTag[t.tag] || !byTag[t.tag].class_id; }).length;
-                list.innerHTML = missing ? '<p class="adm-alert">' + missing + ' equipo(s) sin tipo asignado.</p>' : '';
+                list.innerHTML = '';
+                if (missing) {
+                    list.appendChild(el('<p class="adm-alert">' + missing + ' equipo(s) sin tipo asignado.</p>'));
+                    list.appendChild(button('🪄 Auto-asignar', 'is-ghost is-block', function () { autoAssign(cat, byTag); }));
+                }
                 if (!rows.length) { list.innerHTML += empty('🔎', 'Ningún equipo coincide.'); return; }
                 rows.forEach(function (t) {
                     var cur = byTag[t.tag] && classes[byTag[t.tag].class_id];
@@ -728,6 +770,7 @@
             (cur ? '<p class="adm-note">Las rutinas de los registros anteriores se conservan; las fechas se calculan con las rutinas del tipo nuevo.</p>' : '') +
             '<p class="adm-error" hidden></p></form>');
         form.querySelector('.adm-muted').textContent = t.servicio;
+        form.appendChild(photosBlock(t.tag));
         if (cur) form.cls.value = cur.id;
         if (pair) form.reg.value = (row && row.regime) || 'normal';
         links = links || {};
@@ -762,6 +805,7 @@
         box.innerHTML = '<h1 class="adm-h1">Más</h1><div class="adm-menu">' +
             '<a class="adm-card adm-menu-item" href="#usuarios"><span>👥</span><strong>Usuarios</strong><em>›</em></a>' +
             '<a class="adm-card adm-menu-item" href="#sitio"><span>🌐</span><strong>Sitio: títulos, color, logo y fichas</strong><em>›</em></a>' +
+            '<a class="adm-card adm-menu-item" href="#qr"><span>📱</span><strong>Códigos QR para imprimir</strong><em>›</em></a>' +
             '<a class="adm-card adm-menu-item" href="#cuenta"><span>🔑</span><strong>Mi cuenta</strong><em>›</em></a>' +
             '<a class="adm-card adm-menu-item" href="../mantenimientos.html"><span>🛠</span><strong>Ver el sitio de mantenimientos</strong><em>›</em></a>' +
             '</div><h2 class="adm-h2">Descargar (Excel)</h2><div class="adm-menu">' +
@@ -777,12 +821,33 @@
     // ── 🌐 Sitio (títulos, color, logo, Excel de fichas) ─────────────────
     function publishStatus(box, settings) {
         var st = box.querySelector('#site-status');
-        fetch('../migration_metadata.json?t=' + Date.now()).then(function (r) { return r.json(); }).then(function (meta) {
-            var ok = meta.source_version && settings.version && Date.parse(meta.source_version) === Date.parse(settings.version);
-            st.className = 'adm-status ' + (ok ? 'is-ok' : 'is-wait');
-            st.textContent = ok ? '✅ Publicado: el sitio tiene los últimos cambios.'
-                : '⏳ En cola: se publica en unos 15 minutos (máx. 20).';
-        }).catch(function () { st.textContent = ''; });
+        var same = function (a, b) { return a && b && Date.parse(a) === Date.parse(b); };
+        Promise.all([
+            fetch('../publish_status.json?t=' + Date.now()).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
+            fetch('../migration_metadata.json?t=' + Date.now()).then(function (r) { return r.json(); }).catch(function () { return {}; }),
+        ]).then(function (res) {
+            var ps = res[0], meta = res[1];
+            st.innerHTML = '';
+            if (ps && same(ps.version, settings.version) && !ps.ok) {
+                st.className = 'adm-status is-bad';
+                st.appendChild(el('<span>❌ No se pudo publicar el último cambio.</span>'));
+                st.appendChild(el('<p class="adm-status-err"></p>')).textContent = ps.error || '';
+            } else if (same(meta.source_version, settings.version)) {
+                st.className = 'adm-status is-ok';
+                st.appendChild(el('<span>✅ Publicado' + (meta.total_tags ? ' · ' + meta.total_tags + ' TAG' : '') + '</span>'));
+            } else {
+                st.className = 'adm-status is-wait';
+                st.appendChild(el('<span>⏳ En cola: se publica en unos 15 minutos (máx. 20).</span>'));
+            }
+            if (ps && ps.at) {
+                var det = el('<details class="adm-status-det"><summary>Resultado de la última publicación</summary><ul></ul><pre></pre></details>');
+                var ul = det.querySelector('ul');
+                ul.appendChild(el('<li></li>')).textContent = (ps.ok ? 'Correcta' : 'Con error') + ' · ' + L.formatDate(ps.at) + ' ' + String(ps.at).slice(11, 16) + ' UTC' + (ps.tags ? ' · ' + ps.tags + ' TAG' : '');
+                (ps.warnings || []).forEach(function (w) { ul.appendChild(el('<li></li>')).textContent = w; });
+                det.querySelector('pre').textContent = (ps.log || []).join('\n');
+                st.appendChild(det);
+            }
+        });
     }
 
     function screenSitio(box) {
@@ -830,6 +895,8 @@
                 'image/png,image/jpeg,image/webp,image/svg+xml', 'logo', st, box));
             body.appendChild(uploadCard('Excel de fichas técnicas', 'El mismo Excel de donde salen los PDF (.xlsx o .xlsm). Reemplaza el contenido de todas las fichas.',
                 '.xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12', 'fichas', st, box));
+            body.appendChild(uploadCard('Enlaces de documentos (todos los TAG)', 'Excel TAG_RESOURCES.xlsx con columnas TAG_ID, Specifications, Handbook_Manual y Maintenance. Los enlaces editados uno por uno en ⚙️ Equipos tienen prioridad.',
+                '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'resources', st, box));
             var regen = el('<div class="adm-card"><h2 class="adm-h2">Regenerar todo el sitio</h2>' +
                 '<p class="adm-muted">Vuelve a armar las fichas de todos los TAG con lo último guardado (Excel, enlaces, logo y textos). Usalo si algo se ve desactualizado.</p></div>');
             regen.appendChild(button('🔄 Regenerar el sitio ahora', 'is-ghost is-block', function () {
@@ -846,8 +913,52 @@
         });
     }
 
+    function previewFichas(file) {
+        return loadLib(JSZIP_URL).then(function () { return window.JSZip.loadAsync(file); }).then(function (zip) {
+            var wb = zip.file('xl/workbook.xml');
+            if (!wb) throw new Error('No es un Excel válido (.xlsx o .xlsm).');
+            return wb.async('string');
+        }).then(function (xml) {
+            var names = [];
+            xml.replace(/<sheet\b[^>]*\bname="([^"]+)"/g, function (_, n) { names.push(n.replace(/&amp;/g, '&')); });
+            var r = L.previewSheets(names, TAGS.map(function (t) { return t.tag; }));
+            var counts = r.removed.length
+                ? client.from('maintenance_records').select('tag_id').in('tag_id', r.removed).then(function (q) {
+                    var c = {}; (q.data || []).forEach(function (x) { c[x.tag_id] = (c[x.tag_id] || 0) + 1; }); return c; })
+                : Promise.resolve({});
+            return counts.then(function (withRecords) {
+                var body = el('<div class="adm-preview"></div>');
+                function block(title, list, cls, render) {
+                    if (!list.length) return;
+                    var d = el('<details class="adm-prev-block ' + cls + '"' + (cls === 'is-bad' ? ' open' : '') + '><summary></summary><ul></ul></details>');
+                    d.querySelector('summary').textContent = title + ' (' + list.length + ')';
+                    list.forEach(function (x) { d.querySelector('ul').appendChild(el('<li></li>')).textContent = render ? render(x) : x; });
+                    body.appendChild(d);
+                }
+                body.appendChild(el('<p class="adm-prev-total"></p>')).textContent = r.tags.length + ' TAG en el Excel nuevo (hoy hay ' + TAGS.length + ').';
+                block('Quedan sin ficha', r.removed, 'is-bad', function (t) {
+                    return t + (withRecords[t] ? ' · ⚠️ tiene ' + withRecords[t] + ' registro(s): quedarían sin ficha' : '');
+                });
+                block('Nuevos', r.added, 'is-ok');
+                block('Sin categoría (no se publican)', r.noCategory, 'is-warn');
+                block('Hojas ignoradas (nombre fuera del formato 000-XX-)', r.ignored, 'is-muted');
+                if (!r.tags.length) {
+                    sheet({ title: 'Este Excel no sirve', body: '<p class="adm-alert">No encontré hojas con TAG (formato 100-P-01). No se subió nada.</p>' });
+                    return false;
+                }
+                return new Promise(function (resolve) {
+                    var done = false, s;
+                    var ok = button('Subir y publicar', 'is-primary', function () { done = true; s.close(); resolve(true); });
+                    s = sheet({ title: 'Revisá antes de publicar', body: body, actions: [button('Cancelar', 'is-ghost', function () { s.close(); }), ok], focus: false });
+                    var obs = new MutationObserver(function () { if (!document.body.contains(s.el)) { obs.disconnect(); if (!done) resolve(false); } });
+                    obs.observe(document.body, { childList: true });
+                });
+            });
+        }).catch(function (e) { toast(e.message || 'No pude leer el Excel.', 'error'); return false; });
+    }
+
     function uploadCard(title, help, accept, kind, st, box) {
-        var current = kind === 'logo' ? st.logo_file : st.fichas_file;
+        var current = st[kind + '_file'];
         var card = el('<div class="adm-card adm-upload"><h2 class="adm-h2"></h2><p class="adm-muted"></p>' +
             '<p class="adm-upload-cur"></p><label class="adm-btn is-ghost is-block adm-file"><input type="file" hidden>Elegir archivo</label>' +
             '<p class="adm-error" hidden></p></div>');
@@ -861,9 +972,10 @@
             if (!file) return;
             var err = card.querySelector('.adm-error');
             if (file.size > 25 * 1024 * 1024) { err.textContent = 'El archivo pesa más de 25 MB.'; err.hidden = false; return; }
-            var go = kind === 'fichas'
-                ? confirmSheet('Reemplazar las fichas', 'Las fichas del sitio se van a regenerar con "' + file.name + '". Los mantenimientos registrados no se tocan.', 'Subir y publicar')
-                : Promise.resolve(true);
+            var go = kind === 'fichas' ? previewFichas(file) : Promise.resolve(true);
+            if (kind === 'logo') {
+                go = go.then(function (ok) { return ok && shrinkImage(file, 800).then(function (b) { file = b.size < file.size && file.type !== 'image/png' ? new File([b], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }) : file; return true; }); });
+            }
             go.then(function (ok) {
                 if (!ok) { input.value = ''; return; }
                 var label = card.querySelector('.adm-file');
@@ -894,6 +1006,191 @@
             });
         });
         return card;
+    }
+
+    // ── 📱 Códigos QR ────────────────────────────────────────────────────
+    function screenQr(box) {
+        var cats = TAGS.map(function (t) { return t.categoria; }).filter(function (v, i, a) { return v && a.indexOf(v) === i; });
+        box.innerHTML = '<a class="adm-back" href="#mas">‹ Más</a><h1 class="adm-h1">Códigos QR</h1>' +
+            '<p class="adm-muted">Cada QR abre la ficha del equipo. Imprimilos en papel adhesivo o guardalos como PDF.</p>' +
+            '<div class="adm-seg" id="qr-cat"><button type="button" class="is-on" data-c="">Todos</button>' +
+            cats.map(function (c) { return '<button type="button" data-c="' + esc(c) + '">' + esc(c.charAt(0) + c.slice(1).toLowerCase()) + '</button>'; }).join('') + '</div>' +
+            '<label class="adm-field"><span>Tamaño</span><select id="qr-size"><option value="3">Mediano (3 por fila)</option><option value="2">Grande (2 por fila)</option><option value="4">Pequeño (4 por fila)</option></select></label>' +
+            '<button type="button" class="adm-btn is-primary is-block" id="qr-print">🖨️ Imprimir / Guardar PDF</button>' +
+            '<div class="qr-sheet" id="qr-sheet">' + skeleton(2) + '</div>';
+        var sheetEl = box.querySelector('#qr-sheet');
+        var cat = '';
+        function draw() {
+            loadLib(QR_URL).then(function () {
+                var cols = box.querySelector('#qr-size').value;
+                sheetEl.style.setProperty('--qr-cols', cols);
+                sheetEl.innerHTML = '';
+                TAGS.filter(function (t) { return !cat || t.categoria === cat; }).forEach(function (t) {
+                    var q = window.qrcode(0, 'M');
+                    q.addData(fichaUrl(t.tag));
+                    q.make();
+                    var item = el('<figure class="qr-item">' + q.createSvgTag({ cellSize: 4, margin: 2, scalable: true }) +
+                        '<figcaption><strong></strong><span></span></figcaption></figure>');
+                    item.querySelector('strong').textContent = t.tag;
+                    item.querySelector('span').textContent = t.servicio;
+                    sheetEl.appendChild(item);
+                });
+            }, function () { sheetEl.innerHTML = '<p class="adm-alert">' + esc(L.adminErrorMessage(0)) + '</p>'; });
+        }
+        Array.prototype.forEach.call(box.querySelectorAll('#qr-cat button'), function (b) {
+            b.addEventListener('click', function () {
+                cat = b.dataset.c;
+                Array.prototype.forEach.call(box.querySelectorAll('#qr-cat button'), function (x) { x.classList.toggle('is-on', x === b); });
+                draw();
+            });
+        });
+        box.querySelector('#qr-size').addEventListener('change', draw);
+        box.querySelector('#qr-print').addEventListener('click', function () { window.print(); });
+        draw();
+    }
+
+    // ── 🪄 Auto-asignar tipo de equipo ───────────────────────────────────
+    function autoAssign(cat, byTag) {
+        loadSabana().then(function (lib) {
+            var byCode = {};
+            cat.classes.forEach(function (c) { byCode[c.code] = c; });
+            var libClasses = lib.classes.filter(function (c) { return byCode[c.code]; });
+            var props = TAGS.filter(function (t) { return !byTag[t.tag] || !byTag[t.tag].class_id; }).map(function (t) {
+                var code = L.suggestClass(t.tag, t.texto || t.servicio, libClasses);
+                return { tag: t.tag, servicio: t.servicio, cls: code ? byCode[code] : null };
+            });
+            var hits = props.filter(function (p) { return p.cls; });
+            var body = el('<div><p class="adm-muted"></p><div class="adm-acts"></div></div>');
+            body.querySelector('.adm-muted').textContent = hits.length
+                ? 'Propuesta según la letra del TAG y su tipo/servicio. Desmarcá lo que no esté bien.'
+                : 'No encontré sugerencias para los equipos sin tipo. Asignalos a mano.';
+            hits.forEach(function (p) {
+                var row = el('<label class="adm-check adm-act-check"><input type="checkbox" checked> <span><strong></strong> → <em></em><small></small></span></label>');
+                row.querySelector('strong').textContent = p.tag;
+                row.querySelector('em').textContent = p.cls.name;
+                row.querySelector('small').textContent = p.servicio;
+                row.querySelector('input').dataset.tag = p.tag;
+                row.querySelector('input').dataset.cls = p.cls.id;
+                body.querySelector('.adm-acts').appendChild(row);
+            });
+            var s;
+            var apply = button('Asignar', 'is-primary', function () {
+                var chosen = Array.prototype.filter.call(body.querySelectorAll('input:checked'), function () { return true; }).map(function (i) {
+                    var t = i.dataset.tag, m = /^(.*\d)[AB]$/.exec(t);
+                    var pairTag = m ? m[1] + (t.slice(-1) === 'A' ? 'B' : 'A') : null;
+                    var hasPair = pairTag && TAGS.some(function (x) { return x.tag === pairTag; });
+                    return { tag_id: t, class_id: i.dataset.cls, group_key: hasPair ? m[1] : null };
+                });
+                if (!chosen.length) return s.close();
+                busy(apply, true);
+                client.from('equipment_tags').upsert(chosen).then(function (r) {
+                    busy(apply, false);
+                    if (r.error) return toast(dbError(r.error), 'error');
+                    s.close();
+                    toast(chosen.length + ' equipo(s) asignados.');
+                    route();
+                });
+            });
+            s = sheet({ title: '🪄 Auto-asignar', body: body, actions: hits.length ? [button('Cancelar', 'is-ghost', function () { s.close(); }), apply] : [], focus: false });
+        });
+    }
+
+    // ── 📷 Fotos del equipo desde el celular ─────────────────────────────
+    function photosBlock(tag) {
+        var wrap = el('<div class="adm-photos"><h3 class="adm-h3">Fotos tomadas desde el celular</h3><div class="adm-photo-grid"></div>' +
+            '<label class="adm-btn is-ghost is-block adm-file"><input type="file" accept="image/*" capture="environment" hidden>📷 Tomar o elegir foto</label>' +
+            '<p class="adm-muted">Aparecen primero en la ficha en unos 15 minutos.</p></div>');
+        var grid = wrap.querySelector('.adm-photo-grid');
+        var base = cfg.url + '/storage/v1/object/public/site-sources/';
+        function load() {
+            client.from('tag_photos').select('id,path').eq('tag_id', tag).order('created_at').then(function (r) {
+                grid.innerHTML = '';
+                (r.data || []).forEach(function (ph) {
+                    var it = el('<div class="adm-photo"><img alt="" loading="lazy"><button type="button" class="adm-photo-del" aria-label="Quitar foto">✕</button></div>');
+                    it.querySelector('img').src = base + ph.path;
+                    it.querySelector('button').addEventListener('click', function () {
+                        confirmSheet('Quitar foto', 'La foto deja de aparecer en la ficha de ' + tag + '.', 'Quitar', true).then(function (ok) {
+                            if (!ok) return;
+                            client.from('tag_photos').delete().eq('id', ph.id).then(function (d) {
+                                if (d.error) return toast(dbError(d.error), 'error');
+                                toast('Foto quitada.'); load();
+                            });
+                        });
+                    });
+                    grid.appendChild(it);
+                });
+            });
+        }
+        var input = wrap.querySelector('input');
+        input.addEventListener('change', function () {
+            var file = input.files[0];
+            if (!file) return;
+            var label = wrap.querySelector('.adm-file');
+            label.classList.add('is-busy');
+            shrinkImage(file, 1600).then(function (blob) {
+                var path = 'fotos/' + tag + '/' + Date.now() + '.jpg';
+                return client.storage.from('site-sources').upload(path, blob, { contentType: 'image/jpeg' }).then(function (up) {
+                    if (up.error) throw up.error;
+                    return client.from('tag_photos').insert({ tag_id: tag, path: path });
+                });
+            }).then(function (r) {
+                if (r.error) throw r.error;
+                toast('Foto guardada. Sale en la ficha en unos 15 minutos.');
+                load();
+            }).catch(function (e) { toast(dbError(e), 'error'); }).then(function () {
+                label.classList.remove('is-busy');
+                input.value = '';
+            });
+        });
+        load();
+        return wrap;
+    }
+
+    // ── 📥 Importar rutinas base (sábana) ────────────────────────────────
+    function importSabana(cat) {
+        loadSabana().then(function (lib) {
+            var have = {};
+            cat.classes.forEach(function (c) { have[c.code] = c; });
+            var actCodes = {};
+            cat.acts.forEach(function (a) { actCodes[a.class_id + '|' + a.code] = true; });
+            var newClasses = lib.classes.filter(function (c) { return !have[c.code]; });
+            var newActs = lib.activities.filter(function (a) { return !have[a.class_code] || !actCodes[have[a.class_code].id + '|' + a.code]; });
+            var body = el('<div><p class="adm-muted">Agrega los tipos de equipo y rutinas de la biblioteca que todavía no están. No cambia lo que ya existe.</p><ul class="adm-list"></ul></div>');
+            var ul = body.querySelector('ul');
+            newClasses.forEach(function (c) {
+                var n = newActs.filter(function (a) { return a.class_code === c.code; }).length;
+                ul.appendChild(el('<li></li>')).textContent = c.name + ' (' + n + ' rutinas)';
+            });
+            var extra = newActs.filter(function (a) { return have[a.class_code]; });
+            if (extra.length) ul.appendChild(el('<li></li>')).textContent = extra.length + ' rutina(s) nuevas en tipos que ya existen';
+            if (!newClasses.length && !newActs.length) body.innerHTML = '<p class="adm-muted">Ya tenés todo lo de la biblioteca.</p>';
+            var s;
+            var go = button('Importar', 'is-primary', function () {
+                busy(go, true, 'Importando…');
+                var ins = newClasses.length
+                    ? client.from('equipment_classes').insert(newClasses.map(function (c) { return { code: c.code, name: c.name, hours_per_day: c.hours_per_day }; })).select('id,code')
+                    : Promise.resolve({ data: [] });
+                ins.then(function (r) {
+                    if (r.error) throw r.error;
+                    var ids = {};
+                    cat.classes.forEach(function (c) { ids[c.code] = c.id; });
+                    r.data.forEach(function (c) { ids[c.code] = c.id; });
+                    var perClass = {};
+                    var rows = newActs.filter(function (a) {
+                        var active = cat.acts.filter(function (x) { return x.class_id === ids[a.class_code] && x.active; }).length;
+                        perClass[a.class_code] = (perClass[a.class_code] || active) + 1;
+                        return perClass[a.class_code] <= 5;
+                    }).map(function (a) {
+                        return { class_id: ids[a.class_code], code: a.code, name: a.name, interval_weeks: a.interval_weeks, interval_hours: a.interval_hours };
+                    });
+                    return rows.length ? client.from('maintenance_activities').insert(rows) : { error: null };
+                }).then(function (r) {
+                    if (r.error) throw r.error;
+                    s.close(); toast('Rutinas base importadas.'); route();
+                }).catch(function (e) { busy(go, false); toast(dbError(e), 'error'); });
+            });
+            s = sheet({ title: '📥 Importar rutinas base', body: body, actions: (newClasses.length || newActs.length) ? [button('Cancelar', 'is-ghost', function () { s.close(); }), go] : [], focus: false });
+        });
     }
 
     // ── Descargas CSV (abren en Excel: BOM + punto y coma) ──────────────────
@@ -1145,7 +1442,7 @@
 
     var SCREENS = {
         resumen: screenResumen, registros: screenRegistros, rutinas: screenRutinas, equipos: screenEquipos,
-        mas: screenMas, usuarios: screenUsuarios, cuenta: screenCuenta, sitio: screenSitio,
+        mas: screenMas, usuarios: screenUsuarios, cuenta: screenCuenta, sitio: screenSitio, qr: screenQr,
     };
 
     // ── arranque ──────────────────────────────────────────────────────────

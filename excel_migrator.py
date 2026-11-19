@@ -500,6 +500,12 @@ def page_skeleton(
                 <line x1="21" y1="21" x2="16.5" y2="16.5"/>
             </svg>
         </button>
+        <a class="home-btn admin-btn" href="{rel_prefix}admin/" aria-label="Administración" title="Administración">
+            <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>
+            </svg>
+        </a>
     </header>
     <div class="lightbox" id="lightbox" hidden role="dialog" aria-label="Galería de imágenes" aria-modal="true">
         <div class="lightbox-overlay" aria-hidden="true"></div>
@@ -562,7 +568,9 @@ def render_admin_page(items: list[Item], supabase_config: dict) -> str:
     """Administración web (/admin/): shell propio, sin menú de fichas. La arma admin/app.js."""
     tag_index = [
         {"tag": i.tag, "categoria": i.category,
-         "servicio": (i.properties.get("SERVICIO") or "").strip(), "filename": i.filename}
+         "servicio": (i.properties.get("SERVICIO") or "").strip(), "filename": i.filename,
+         # Texto para auto-asignar el tipo de equipo (mismos campos que maintenance_plan.suggest_class)
+         "texto": " ".join(str(i.properties.get(f) or "") for f in ("TIPO DE BOMBA", "TIPO", "SERVICIO", "Título")).strip()}
         for i in sorted(items, key=lambda i: i.tag)
     ]
     index_json = json.dumps(tag_index, ensure_ascii=False).replace("</", "<\\/")
@@ -2084,6 +2092,18 @@ def generate_site(items: list[Item], output_dir: Path, config: Optional[dict] = 
         (admin_dir / static_name).write_text(
             (REPO_ROOT / "admin" / static_name).read_text(encoding="utf-8"), encoding="utf-8"
         )
+    # Sábana base (biblioteca reutilizable) para "Importar rutinas base" y auto-asignar
+    try:
+        from maintenance_plan import load_library
+        lib_classes, lib_acts = load_library(REPO_ROOT / "sabana_base.xlsx")
+        (admin_dir / "sabana_base.json").write_text(json.dumps({
+            "classes": [{"code": c.code, "name": c.name, "hours_per_day": c.hours_per_day,
+                         "tag_letters": c.tag_letters, "keywords": c.keywords} for c in lib_classes],
+            "activities": [{"class_code": x.class_code, "code": x.code, "name": x.name,
+                            "interval_hours": x.interval_hours, "interval_weeks": x.interval_weeks} for x in lib_acts],
+        }, ensure_ascii=False), encoding="utf-8")
+    except Exception as e:  # la administración funciona igual sin biblioteca
+        print(f"   ⚠️  sabana_base.json no generada: {e}")
     print("   ✅ admin/ (administración web)")
 
     # Páginas por categoría y por item

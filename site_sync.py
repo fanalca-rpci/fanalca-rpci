@@ -16,6 +16,7 @@ import os
 import subprocess
 import sys
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent
@@ -69,13 +70,47 @@ def derive_theme(accent: str) -> dict[str, str]:
 def plan_sync(settings: dict, meta: dict) -> dict[str, bool]:
     """Qué hay que hacer comparando lo configurado con lo último publicado."""
     changed = bool(settings) and settings.get("version") != meta.get("source_version")
-    return {
-        "changed": changed,
-        "logo": changed and bool(settings.get("logo_file"))
-                and settings.get("logo_version") != meta.get("logo_version"),
-        "fichas": changed and bool(settings.get("fichas_file"))
-                  and settings.get("fichas_version") != meta.get("fichas_version"),
-    }
+
+    def new(kind: str) -> bool:
+        return (changed and bool(settings.get(f"{kind}_file"))
+                and settings.get(f"{kind}_version") != meta.get(f"{kind}_version"))
+
+    return {"changed": changed, "logo": new("logo"), "fichas": new("fichas")}
+
+
+def merge_resources(from_file: dict[str, dict[str, str]], rows: list[dict]) -> list[dict]:
+    """Enlaces del Excel subido + los editados uno por uno (estos ganan)."""
+    cols = {"Specifications": "specifications", "Handbook_Manual": "handbook", "Maintenance": "maintenance"}
+    merged: dict[str, dict] = {}
+    for tag, links in from_file.items():
+        merged[tag] = {"tag_id": tag, **{cols[k]: v for k, v in links.items() if k in cols}}
+    for r in rows:
+        base = merged.setdefault(r["tag_id"], {"tag_id": r["tag_id"]})
+        for k in cols.values():
+            if r.get(k) is not None:
+                base[k] = r[k]
+    return list(merged.values())
+
+
+def photo_names(paths: list[str]) -> list[str]:
+    """Nombres locales de las fotos subidas desde la web, en orden (web-1.jpg, …)."""
+    out = []
+    for i, p in enumerate(paths, 1):
+        ext = Path(p).suffix.lower() or ".jpg"
+        out.append(f"web-{i}{ext}")
+    return out
+
+
+def warnings_from_log(log: str) -> list[str]:
+    """Líneas del log que el usuario debería ver (hojas ignoradas, avisos, errores)."""
+    keys = ("⚠", "⊘", "✗", "❌", "ignor", "descart", "sin categor")
+    seen, out = set(), []
+    for line in log.splitlines():
+        t = line.strip()
+        if t and any(k in t for k in keys) and t not in seen:
+            seen.add(t)
+            out.append(t)
+    return out[:30]
 
 
 def apply_config(config: dict, settings: dict) -> dict:
@@ -109,6 +144,17 @@ def _get(url: str, key: str) -> bytes:
         return res.read()
 
 
+STATUS = REPO_ROOT / "docs" / "publish_status.json"
+
+
+def _run(args: list[str], log: list[str], env: dict | None = None) -> None:
+    res = subprocess.run([sys.executable, *args], cwd=REPO_ROOT, env=env, capture_output=True, text=True)
+    log.append(res.stdout + res.stderr)
+    print(res.stdout + res.stderr)
+    if res.returncode != 0:
+        raise RuntimeError(f"Falló {args[0]}: " + (res.stderr.strip().splitlines() or ["sin detalle"])[-1])
+
+
 def main() -> int:
     config = json.loads(CONFIG.read_text(encoding="utf-8"))
     url, key = config["supabase"]["url"], config["supabase"]["anon_key"]
@@ -122,34 +168,82 @@ def main() -> int:
         return 0
 
     print(f"🔄 Cambios desde la web (versión {settings['version']}).")
-    CONFIG.write_text(json.dumps(apply_config(config, settings), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    log: list[str] = []
+    status = {"version": settings["version"], "ok": False,
+              "at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    try:
+        CONFIG.write_text(json.dumps(apply_config(config, settings), ensure_ascii=False, indent=2) + "\n",
+                          encoding="utf-8")
+        public = f"{url}/storage/v1/object/public/site-sources/"
+        if plan["logo"]:
+            LOGO_DEST.parent.mkdir(parents=True, exist_ok=True)
+            LOGO_DEST.write_bytes(_get(public + settings["logo_file"], key))
+            log.append(f"🖼️ Logo actualizado.")
 
-    public = f"{url}/storage/v1/object/public/site-sources/"
-    if plan["logo"]:
-        LOGO_DEST.parent.mkdir(parents=True, exist_ok=True)
-        LOGO_DEST.write_bytes(_get(public + settings["logo_file"], key))
-        print(f"🖼️  Logo actualizado ({settings['logo_file']}).")
+        if plan["fichas"]:
+            ext = Path(settings["fichas_file"]).suffix.lower() or ".xlsx"
+            for old in REPO_ROOT.glob(f"{FICHAS_BASENAME}.*"):
+                old.unlink()
+            src = REPO_ROOT / f"{FICHAS_BASENAME}{ext}"
+            src.write_bytes(_get(public + settings["fichas_file"], key))
+            log.append(f"📄 Excel de fichas nuevo: {Path(settings['fichas_file']).name}")
+            _run(["convert_fichas_to_template.py", src.name], log)
 
-    resources = json.loads(_get(f"{url}/rest/v1/tag_resources?select=*", key))
-    if resources:
-        write_resources_xlsx(resources, RESOURCES_XLSX)
-        print(f"🔗 {len(resources)} TAGs con enlaces.")
+        # Enlaces: Excel subido (si hay) + editados uno por uno
+        from_file: dict = {}
+        if settings.get("resources_file"):
+            tmp = REPO_ROOT / "_resources_upload.xlsx"
+            tmp.write_bytes(_get(public + settings["resources_file"], key))
+            sys.path.insert(0, str(REPO_ROOT))
+            from excel_migrator import load_tag_resources
+            from_file = load_tag_resources(tmp)
+            tmp.unlink()
+        resources = merge_resources(from_file, json.loads(_get(f"{url}/rest/v1/tag_resources?select=*", key)))
+        if resources:
+            write_resources_xlsx(resources, RESOURCES_XLSX)
+            log.append(f"🔗 {len(resources)} TAGs con enlaces.")
 
-    if plan["fichas"]:
-        ext = Path(settings["fichas_file"]).suffix.lower() or ".xlsx"
-        for old in REPO_ROOT.glob(f"{FICHAS_BASENAME}.*"):
-            old.unlink()
-        src = REPO_ROOT / f"{FICHAS_BASENAME}{ext}"
-        src.write_bytes(_get(public + settings["fichas_file"], key))
-        print(f"📄 Excel de fichas nuevo: {settings['fichas_file']}")
-        subprocess.run([sys.executable, "convert_fichas_to_template.py", src.name], cwd=REPO_ROOT, check=True)
+        # Fotos tomadas desde el celular: van primero en la ficha
+        photos = json.loads(_get(f"{url}/rest/v1/tag_photos?select=tag_id,path&order=created_at", key))
+        images_dir = REPO_ROOT / "docs" / "assets" / "images"
+        manifest_path = images_dir / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}
+        by_tag: dict[str, list[str]] = {}
+        for ph in photos:
+            by_tag.setdefault(ph["tag_id"], []).append(ph["path"])
+        for tag in set(manifest) | set(by_tag):
+            tag_dir = images_dir / tag
+            for old in tag_dir.glob("web-*"):
+                old.unlink()
+            names = photo_names(by_tag.get(tag, []))
+            if names:
+                tag_dir.mkdir(parents=True, exist_ok=True)
+                for name, path in zip(names, by_tag[tag]):
+                    (tag_dir / name).write_bytes(_get(public + path, key))
+            rest = [n for n in manifest.get(tag, []) if not n.startswith("web-")]
+            if names or rest:
+                manifest[tag] = names + rest
+            else:
+                manifest.pop(tag, None)
+        if photos:
+            log.append(f"📷 {len(photos)} fotos tomadas desde el celular.")
+        images_dir.mkdir(parents=True, exist_ok=True)
+        manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    env = dict(os.environ,
-               SITE_SOURCE_VERSION=settings["version"],
-               SITE_FICHAS_VERSION=settings.get("fichas_version") or "",
-               SITE_LOGO_VERSION=settings.get("logo_version") or "")
-    subprocess.run([sys.executable, "excel_migrator.py", "plantilla_sitio.xlsx", "docs/"],
-                   cwd=REPO_ROOT, check=True, env=env)
+        env = dict(os.environ,
+                   SITE_SOURCE_VERSION=settings["version"],
+                   SITE_FICHAS_VERSION=settings.get("fichas_version") or "",
+                   SITE_LOGO_VERSION=settings.get("logo_version") or "")
+        _run(["excel_migrator.py", "plantilla_sitio.xlsx", "docs/"], log, env)
+        new_meta = json.loads(METADATA.read_text(encoding="utf-8"))
+        status.update(ok=True, tags=new_meta.get("total_tags"), categories=new_meta.get("categories"))
+    except Exception as e:  # el error queda visible en la administración
+        status["error"] = str(e)
+        print(f"❌ {e}")
+    full = "\n".join(log)
+    status["warnings"] = warnings_from_log(full)
+    status["log"] = full.splitlines()[-40:]
+    STATUS.write_text(json.dumps(status, ensure_ascii=False, indent=2), encoding="utf-8")
     print("changed=true")
     return 0
 

@@ -394,6 +394,22 @@ y generar el sitio una vez con `SITE_SOURCE_VERSION=<version de esa fila en form
 
 **Fuera a propósito:** agenda y programación manual (el calendario se define después). `gui.py` queda solo como respaldo.
 
+**Acceso (requisito del usuario):** el sitio público de las fichas lleva un **ícono ⚙️ en el banner** (a la derecha de la 🔍) que abre `/admin/`, además del ítem "⚙️ Administración" en el menú ☰. Verificado sin desborde a 360 px.
+
+**Lo que la web hace y la GUI no hacía (validado en FANALCA 2026-11-18):**
+
+| Función | Dónde |
+|---|---|
+| Resultado de cada publicación: ✅ / ⏳ / ❌ con TAG publicados, avisos (hojas ignoradas, logos descartados) y el registro completo | 🌐 Sitio, arriba (`docs/publish_status.json`, lo escribe `site_sync.py`) |
+| **Vista previa del Excel** antes de subirlo: TAG nuevos, los que quedan sin ficha (avisa si tienen registros), sin categoría, hojas ignoradas | 🌐 Sitio → Excel de fichas |
+| **Códigos QR** por TAG para imprimir o guardar en PDF (2, 3 o 4 por fila, filtro por categoría) | ☰ Más → 📱 Códigos QR |
+| **🪄 Auto-asignar** el tipo de equipo a los TAG sin tipo (letra del TAG + palabras clave de `sabana_base.xlsx`) | ⚙️ Equipos |
+| **📷 Fotos del equipo** desde la cámara del celular (se comprimen a 1600 px; salen primero en la ficha) | ⚙️ Equipos → tocar el TAG |
+| Enlaces de documentos **en bloque** (subir `TAG_RESOURCES.xlsx`; los editados uno a uno ganan) | 🌐 Sitio |
+| **📥 Importar rutinas base** de la biblioteca (no pisa lo existente, respeta el tope de 5) | 🔧 Rutinas |
+
+**`sabana_base.xlsx` ahora trae los 8 tipos de equipo de FANALCA** (bombas sumergibles, neumáticas, sopladores, compresor, filtro prensa, reactor MBBR, tanques, difusor ciclónico) con sus 38 rutinas, letras de TAG y palabras clave, más la centrífuga horizontal de ejemplo. **En DEXCO:** después de subir el Excel de fichas, 🔧 Rutinas → 📥 Importar rutinas base y ⚙️ Equipos → 🪄 Auto-asignar; revisar lo que no coincida. Migraciones de esta parte: `20261118140000_site_settings.sql`, `20261118150000_site_photos_resources.sql`.
+
 **Para DEXCO:** todo viene en el código. Pasos: `supabase db push --linked` + `supabase functions deploy admin-users --project-ref <ref> --use-api` + regenerar el sitio + push. Prueba desde el celular: entrar como oficina, crear un técnico, entrar con él (ve solo Resumen, Mis registros, Mi cuenta), desactivarlo.
 
 ### 9.5 Administración web por perfiles — plan (FANALCA, 2026-11-18)

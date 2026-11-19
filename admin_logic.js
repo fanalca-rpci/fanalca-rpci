@@ -14,6 +14,7 @@
         cuenta:    { id: 'cuenta',    icon: '🔑', label: 'Mi cuenta' },
         usuarios:  { id: 'usuarios',  icon: '👥', label: 'Usuarios' },
         sitio:     { id: 'sitio',     icon: '🌐', label: 'Sitio' },
+        qr:        { id: 'qr',        icon: '📱', label: 'Códigos QR' },
     };
     var NAV = {
         tecnico: ['resumen', 'registros', 'cuenta'],
@@ -22,7 +23,7 @@
     // Pantallas alcanzables por perfil (incluye las que viven dentro de "Más").
     var ALLOWED = {
         tecnico: ['resumen', 'registros', 'cuenta'],
-        oficina: ['resumen', 'registros', 'rutinas', 'equipos', 'mas', 'usuarios', 'cuenta', 'sitio'],
+        oficina: ['resumen', 'registros', 'rutinas', 'equipos', 'mas', 'usuarios', 'cuenta', 'sitio', 'qr'],
     };
 
     function fold(s) {
@@ -95,7 +96,58 @@
         return Number(p[2]) + ' ' + MONTHS[Number(p[1]) - 1] + ' ' + p[0];
     }
 
+    var SHEET_RE = /^\d{3}-[A-Z]+-/;
+    var CATS = [
+        [/^(TK|R|F|SD)$/, 'TANQUES'], [/^(P|MX|M|C|PS)$/, 'EQUIPOS'], [/^(AIT|FIT|SV|LT)$/, 'INSTRUMENTOS'],
+    ];
+
+    // Mismo criterio que expand_tags_from_sheet_name(): "100-P-01 A-B" → 100-P-01A, 100-P-01B
+    function expandSheet(name) {
+        var n = String(name || '').trim();
+        var m = /^(.+?)\s*A[_/-]B\s*$/.exec(n);
+        if (m) return [m[1].trim() + 'A', m[1].trim() + 'B'];
+        m = /^(.+?-)(\d+(?:_\d+)+)$/.exec(n);
+        if (m) return m[2].split('_').map(function (x) { return m[1] + x; });
+        return [n];
+    }
+
+    function categoryOf(tag) {
+        var m = /^\d{3}-([A-Z]+)-/.exec(tag);
+        if (!m) return null;
+        for (var i = 0; i < CATS.length; i++) if (CATS[i][0].test(m[1])) return CATS[i][1];
+        return null;
+    }
+
+    function previewSheets(sheetNames, currentTags) {
+        var tags = [], ignored = [], noCat = [];
+        sheetNames.forEach(function (s) {
+            if (!SHEET_RE.test(s)) { ignored.push(s); return; }
+            expandSheet(s).forEach(function (t) { if (categoryOf(t)) tags.push(t); else noCat.push(t); });
+        });
+        var cur = {}, nxt = {};
+        currentTags.forEach(function (t) { cur[t] = true; });
+        tags.forEach(function (t) { nxt[t] = true; });
+        return {
+            tags: tags, ignored: ignored, noCategory: noCat,
+            added: tags.filter(function (t) { return !cur[t]; }),
+            removed: currentTags.filter(function (t) { return !nxt[t]; }),
+        };
+    }
+
+    // Espejo de maintenance_plan.suggest_class: letra del TAG + palabra clave en el texto
+    function suggestClass(tag, text, classes) {
+        var m = /^\d{3}-([A-Z]+)-/.exec(tag || '');
+        if (!m) return null;
+        var t = fold(text);
+        for (var i = 0; i < classes.length; i++) {
+            var c = classes[i];
+            if (c.tag_letters.indexOf(m[1]) !== -1 && c.keywords.some(function (k) { return t.indexOf(fold(k)) !== -1; })) return c.code;
+        }
+        return null;
+    }
+
     var api = {
+        expandSheet: expandSheet, categoryOf: categoryOf, previewSheets: previewSheets, suggestClass: suggestClass,
         normalizeEmail: normalizeEmail, validateNewUser: validateNewUser,
         validateNewPassword: validateNewPassword, filterUsers: filterUsers, roleLabel: roleLabel,
         whatsappShareUrl: whatsappShareUrl, adminErrorMessage: adminErrorMessage,

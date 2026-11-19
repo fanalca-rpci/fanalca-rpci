@@ -59,3 +59,23 @@ def test_write_resources_xlsx(tmp_path):
     assert rows[0] == ["TAG_ID", "Specifications", "Handbook_Manual", "Maintenance"]
     assert rows[1][:2] == ["A", "https://s"]
     assert rows[2][2] == "https://m"
+
+
+def test_merge_resources_editados_ganan():
+    from_file = {"A": {"Specifications": "https://viejo", "Maintenance": "https://m"}, "B": {"Handbook_Manual": "https://h"}}
+    rows = [{"tag_id": "A", "specifications": "https://nuevo", "handbook": None, "maintenance": None},
+            {"tag_id": "C", "handbook": "https://c"}]
+    out = {r["tag_id"]: r for r in S.merge_resources(from_file, rows)}
+    assert out["A"]["specifications"] == "https://nuevo"
+    assert out["A"]["maintenance"] == "https://m"
+    assert out["B"]["handbook"] == "https://h"
+    assert out["C"]["handbook"] == "https://c"
+
+
+def test_photo_names_en_orden_con_extension():
+    assert S.photo_names(["fotos/X/1.jpeg", "fotos/X/2.PNG", "fotos/X/3"]) == ["web-1.jpeg", "web-2.png", "web-3.jpg"]
+
+
+def test_warnings_from_log_filtra_y_no_repite():
+    log = "📖 Leyendo\n  ⊘ 52 imágenes descartadas\n  ✓ ok\n⚠️ Hoja3 ignorada\n⚠️ Hoja3 ignorada\n"
+    assert S.warnings_from_log(log) == ["⊘ 52 imágenes descartadas", "⚠️ Hoja3 ignorada"]

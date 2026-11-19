@@ -48,11 +48,15 @@ def test_normalize_quita_tildes_y_mayusculas():
     assert normalize(None) == ""
 
 
-def test_biblioteca_del_repo_trae_el_ejemplo_de_centrifugas():
+def test_biblioteca_del_repo_trae_fanalca_y_centrifugas():
     classes, activities = load_library("sabana_base.xlsx")
-    assert [c.code for c in classes] == ["BOMBA_CENTRIFUGA_H"]
-    assert classes[0].tag_letters == ["P"]
-    assert {(a.code, a.interval_hours, a.interval_weeks) for a in activities} == {
+    codes = [c.code for c in classes]
+    assert len(codes) == 9 and "BOMBA_CENTRIFUGA_H" in codes and "DIFUSOR_CICLONICO" in codes
+    by_class = {}
+    for a in activities:
+        by_class.setdefault(a.class_code, []).append(a)
+    assert all(len(v) <= 5 for v in by_class.values())
+    assert {(a.code, a.interval_hours, a.interval_weeks) for a in by_class["BOMBA_CENTRIFUGA_H"]} == {
         ("LUB-ROD", 1300, 12),
         ("REV-SELLO", 4000, 26),
         ("ALINEACION", 8000, 52),
@@ -122,8 +126,8 @@ def test_suggest_class_con_la_biblioteca_del_repo():
     assert sugeridas == {
         "200-P-01A": "BOMBA_CENTRIFUGA_H",
         "500-P-01": "BOMBA_CENTRIFUGA_H",
-        "802-P-01": None,
-        "801-P-01": None,
+        "802-P-01": "BOMBA_NEUMATICA",
+        "801-P-01": "BOMBA_NEUMATICA",
         "100-TK-01": None,
         "Hoja3": None,
     }

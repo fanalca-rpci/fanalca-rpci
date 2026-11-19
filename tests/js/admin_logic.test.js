@@ -65,3 +65,30 @@ test('formatDate en español corto', () => {
     assert.equal(L.formatDate('2026-11-17'), '17 nov 2026');
     assert.equal(L.formatDate(null), '—');
 });
+
+test('expandSheet y categoryOf como convert_fichas', () => {
+    assert.deepEqual(L.expandSheet('100-P-01A-B'), ['100-P-01A', '100-P-01B']);
+    assert.deepEqual(L.expandSheet('400-C-01 A-B'), ['400-C-01A', '400-C-01B']);
+    assert.deepEqual(L.expandSheet('400-MX-01_02_03'), ['400-MX-01', '400-MX-02', '400-MX-03']);
+    assert.equal(L.categoryOf('600-SD-01'), 'TANQUES');
+    assert.equal(L.categoryOf('100-HX-01'), null);
+});
+
+test('previewSheets detecta nuevos, quitados, ignorados y sin categoría', () => {
+    const r = L.previewSheets(['100-P-01A-B', 'Hoja3', '100-HX-01', '900-TK-01'], ['100-P-01A', '100-P-01B', '400-R-01']);
+    assert.deepEqual(r.added, ['900-TK-01']);
+    assert.deepEqual(r.removed, ['400-R-01']);
+    assert.deepEqual(r.ignored, ['Hoja3']);
+    assert.deepEqual(r.noCategory, ['100-HX-01']);
+});
+
+test('suggestClass igual que maintenance_plan', () => {
+    const classes = [
+        { code: 'NEU', tag_letters: ['P'], keywords: ['neumatica', 'diafragma'] },
+        { code: 'SUM', tag_letters: ['P'], keywords: ['sumergible'] },
+    ];
+    assert.equal(L.suggestClass('600-P-02', 'Neumática WILDEN', classes), 'NEU');
+    assert.equal(L.suggestClass('100-P-01A', 'Bomba sumergible', classes), 'SUM');
+    assert.equal(L.suggestClass('100-TK-01', 'Tanque', classes), null);
+    assert.equal(L.suggestClass('Hoja3', 'sumergible', classes), null);
+});
