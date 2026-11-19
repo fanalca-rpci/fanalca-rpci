@@ -41,6 +41,13 @@ jobs:
         env:
           DB: ${{ secrets.SUPABASE_DB_URL }}
         run: |
+          # Limpiar espacios, comillas y saltos de línea que se cuelan al pegar el secreto
+          DB=$(printf '%s' "$DB" | tr -d '\r\n' | sed -e 's/^[[:space:]"'"'"']*//' -e 's/[[:space:]"'"'"']*$//')
+          if [ -n "$DB" ] && ! printf '%s' "$DB" | grep -qE '^postgres(ql)?://'; then
+            echo "::warning::SUPABASE_DB_URL no empieza con postgresql:// (se ignora). Revisar el secreto."
+            DB=""
+            echo "PGDUMP_FAILED=1" >> "$GITHUB_ENV"
+          fi
           if [ -z "$DB" ]; then
             echo "ℹ️ Sin SUPABASE_DB_URL: solo respaldo JSON. Agregarlo da un volcado más fácil de restaurar."
           else
