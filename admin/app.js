@@ -1087,33 +1087,29 @@
     }
 
     function cardSvg(fmt, t, logo, rpci) {
-        var url = fichaUrl(t.tag), out;
+        var url = fichaUrl(t.tag), F = 'font-family="Arial,Helvetica,sans-serif"';
         if (fmt.vb === 'key') {
-            // 50 × 30: QR + TAG
-            out = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 30">' +
+            // 50 × 30 mm: orificio centrado arriba, QR debajo a la izquierda, TAG a la derecha
+            return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 30">' +
                 '<rect x="0.25" y="0.25" width="49.5" height="29.5" rx="2" fill="#fff" stroke="#9aa4ae" stroke-width="0.3" stroke-dasharray="1 0.8"/>' +
-                qrPath(url, 1.5, 1.5, 27) + centerLogo(logo, 1.5, 1.5, 27) +
-                punchHole(39, 4.2, 3.5, 1) +
-                '<text x="39" y="14" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="4.2" textLength="19" lengthAdjust="spacingAndGlyphs">' + esc(t.tag) + '</text>' +
-                '<text x="39" y="19.5" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="2.2" fill="#444">Escanear ficha</text></svg>';
-            return out;
+                punchHole(25, 2.7, 3.5, 1) +
+                qrPath(url, 1.5, 5, 24) + centerLogo(logo, 1.5, 5, 24) +
+                '<text x="38" y="17" text-anchor="middle" ' + F + ' font-weight="700" font-size="4.2" textLength="' + Math.min(20, t.tag.length * 2.3) + '" lengthAdjust="spacingAndGlyphs">' + esc(t.tag) + '</text>' +
+                '<text x="38" y="22.5" text-anchor="middle" ' + F + ' font-size="2.2" fill="#444">Escanear ficha</text></svg>';
         }
-        // Diseño base 86 × 55 escalado parejo a la tarjeta de 91 × 60 (QR sin deformar);
-        // la Mega usa el mismo dibujo al doble de tamaño.
+        // 91 × 60 mm (la Mega es este mismo dibujo al doble): orificio centrado arriba,
+        // QR debajo a la izquierda; logo RPCI, TAG y servicio a la derecha.
         var lines = wrapText(t.servicio, 22, 3).map(function (l, i) {
-            return '<text x="69.5" y="' + (36 + i * 3.6) + '" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="2.9" fill="#333">' + esc(l) + '</text>';
+            return '<text x="72.5" y="' + (40 + i * 3.8) + '" text-anchor="middle" ' + F + ' font-size="3" fill="#333">' + esc(l) + '</text>';
         }).join('');
-        var W = 91, H = 60, k = Math.min(W / 86, H / 55);
-        out = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '">' +
-            '<rect x="0.25" y="0.25" width="' + (W - 0.5) + '" height="' + (H - 0.5) + '" rx="3" fill="#fff" stroke="#9aa4ae" stroke-width="0.3" stroke-dasharray="1.2 1"/>' +
-            '<g transform="translate(' + ((W - 86 * k) / 2).toFixed(3) + ' ' + ((H - 55 * k) / 2).toFixed(3) + ') scale(' + k.toFixed(5) + ')">' +
-            qrPath(url, 2, 2, 51) + centerLogo(logo, 2, 2, 51) +
-            (rpci ? '<image href="' + esc(rpci.src) + '" x="56" y="8.5" width="27" height="10.5" preserveAspectRatio="xMidYMid meet"/>' : '') +
-            '<text x="69.5" y="28" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="6" textLength="' + Math.min(27, t.tag.length * 3.3) + '" lengthAdjust="spacingAndGlyphs">' + esc(t.tag) + '</text>' +
+        return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 91 60">' +
+            '<rect x="0.25" y="0.25" width="90.5" height="59.5" rx="3" fill="#fff" stroke="#9aa4ae" stroke-width="0.3" stroke-dasharray="1.2 1"/>' +
+            punchHole(45.5, 4, 4.5, fmt.w / 91) +
+            qrPath(url, 2, 7.5, 51) + centerLogo(logo, 2, 7.5, 51) +
+            (rpci ? '<image href="' + esc(rpci.src) + '" x="57" y="9" width="31" height="13" preserveAspectRatio="xMidYMid meet"/>' : '') +
+            '<text x="72.5" y="32" text-anchor="middle" ' + F + ' font-weight="700" font-size="6.4" textLength="' + Math.min(30, t.tag.length * 3.5) + '" lengthAdjust="spacingAndGlyphs">' + esc(t.tag) + '</text>' +
             lines +
-            '<text x="69.5" y="52" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="2.3" fill="#777">Escanee para ver la ficha</text></g>' +
-            punchHole(((W - 86 * k) / 2 + 69.5 * k), 4.2, 4.5, fmt.w / W) + '</svg>';
-        return out;
+            '<text x="72.5" y="56" text-anchor="middle" ' + F + ' font-size="2.4" fill="#777">Escanee para ver la ficha</text></svg>';
     }
 
     function screenQr(box) {
