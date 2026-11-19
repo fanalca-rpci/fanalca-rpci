@@ -368,7 +368,23 @@ supabase db query --linked "select c.name, count(a.*) rutinas from public.equipm
 
 Cuando el módulo exista, vendrá en el código clonado y aquí se documentará cómo activarlo para DEXCO.
 
-### 9.5 Administración web por perfiles ⏳ plan aprobado en FANALCA (2026-11-18), en construcción
+### 9.6 Administración web — qué hay en producción ✅ (FANALCA, 2026-11-18)
+
+URL `…/admin/`. Lo que reemplaza del escritorio:
+
+| Escritorio (`gui.py`) | Web (`/admin/`) |
+|---|---|
+| 🧰 Mantenimientos: ver, editar (fecha, tipo, descripción, repuestos, horas, rutinas), borrar | 📋 Registros (filtro por TAG, por mes, cursor) |
+| 📋 Plan → Sábana: tipos, rutinas, semanas/horas, horas/día, activar | 🔧 Rutinas (tope 5 activas en pantalla; en la base, fase 2) |
+| 📋 Plan → Equipos: tipo y régimen del par A/B | ⚙️ Equipos |
+| Exportar sábana | ☰ Más → Descargar (rutinas, equipos, registros 12 meses) en CSV para Excel |
+| — (se hacía en el panel de Supabase) | 👥 Usuarios + 🔑 Mi cuenta |
+
+**Todavía solo en escritorio / con Claude:** generar el sitio con un Excel nuevo, logo, color, títulos y enlaces de documentos por TAG (`TAG_RESOURCES.xlsx`). **Fuera a propósito:** agenda y programación manual (el calendario se define después).
+
+**Para DEXCO:** todo viene en el código. Pasos: `supabase db push --linked` + `supabase functions deploy admin-users --project-ref <ref> --use-api` + regenerar el sitio + push. Prueba desde el celular: entrar como oficina, crear un técnico, entrar con él (ve solo Resumen, Mis registros, Mi cuenta), desactivarlo.
+
+### 9.5 Administración web por perfiles — plan (FANALCA, 2026-11-18)
 
 - **El usuario administra solo desde el celular.** Nada administrativo puede depender de `gui.py`; la GUI de escritorio queda solo para generar el sitio desde el Excel.
 - **URL dedicada:** `https://<cuenta>.github.io/<repo>/admin/` (ítem "⚙️ Administración" al final del menú ☰). Login con usuario y contraseña de Supabase.
