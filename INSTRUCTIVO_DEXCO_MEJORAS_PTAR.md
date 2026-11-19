@@ -402,7 +402,7 @@ gh workflow run supabase-keepalive.yml -R <cuenta>/<repo>
 gh run watch -R <cuenta>/<repo> $(gh run list -R <cuenta>/<repo> -w supabase-keepalive.yml -L1 --json databaseId -q '.[0].databaseId') --exit-status
 ```
 
-⚠️ GitHub **desactiva los Actions programados si el repo pasa 60 días sin commits**. Mientras se siga actualizando el sitio no pasa; si un día el proyecto queda quieto, entrar a GitHub → Actions → "Mantener Supabase activo" → *Enable workflow*. Si Supabase ya se pausó: panel de Supabase → *Restore project*.
+GitHub **desactiva los Actions programados si el repo pasa 60 días sin commits**. Lo cubre `.github/workflows/repo-keepalive.yml` (también viene en el código): el día 1 de cada mes, si el último commit tiene 30 días o más, hace un commit mínimo en `.github/keepalive.txt`; si hubo cambios, no hace nada. Requiere que la cuenta de `gh` tenga el scope `workflow` (la de FANALCA lo tenía) para poder subir los `.yml`. Si aun así Supabase se pausó: panel de Supabase → *Restore project*.
 
 ---
 
