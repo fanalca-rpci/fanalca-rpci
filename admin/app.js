@@ -1031,8 +1031,8 @@
     // ── 📱 Códigos QR (formatos físicos de RPCI) ─────────────────────────
     // Medidas reales en mm. La Mega T-Card es la T-Card al doble (adhesivo).
     var QR_FORMATS = {
-        tcard: { label: 'T-Card · 8,6 × 5,5 cm', hint: 'Tarjeta para colgar en cada equipo', w: 86, h: 55, vb: 'card', cols: 2 },
-        mega:  { label: 'Mega T-Card · 17,2 × 11 cm', hint: 'Adhesivo para tanques y equipos grandes', w: 172, h: 110, vb: 'card', cols: 1 },
+        tcard: { label: 'T-Card · 9,1 × 6,0 cm', hint: 'Tarjeta para colgar en cada equipo', w: 91, h: 60, vb: 'card', cols: 2 },
+        mega:  { label: 'Mega T-Card · 18,2 × 12 cm', hint: 'Adhesivo para tanques y equipos grandes', w: 182, h: 120, vb: 'card', cols: 1 },
         key:   { label: 'Key-holder Tag · 5 × 3 cm', hint: 'Mínimo, para instrumentos pequeños', w: 50, h: 30, vb: 'key', cols: 3 },
     };
     var LOGO_QR = SITE_ROOT + 'assets/logos/LogoQR.png';
@@ -1090,17 +1090,20 @@
                 '<text x="39" y="19.5" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="2.2" fill="#444">Escanear ficha</text></svg>';
             return out;
         }
-        // 86 × 55 (la Mega usa el mismo dibujo al doble de tamaño)
+        // Diseño base 86 × 55 escalado parejo a la tarjeta de 91 × 60 (QR sin deformar);
+        // la Mega usa el mismo dibujo al doble de tamaño.
         var lines = wrapText(t.servicio, 22, 3).map(function (l, i) {
             return '<text x="69.5" y="' + (36 + i * 3.6) + '" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="2.9" fill="#333">' + esc(l) + '</text>';
         }).join('');
-        out = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 86 55">' +
-            '<rect x="0.25" y="0.25" width="85.5" height="54.5" rx="3" fill="#fff" stroke="#9aa4ae" stroke-width="0.3" stroke-dasharray="1.2 1"/>' +
+        var W = 91, H = 60, k = Math.min(W / 86, H / 55);
+        out = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '">' +
+            '<rect x="0.25" y="0.25" width="' + (W - 0.5) + '" height="' + (H - 0.5) + '" rx="3" fill="#fff" stroke="#9aa4ae" stroke-width="0.3" stroke-dasharray="1.2 1"/>' +
+            '<g transform="translate(' + ((W - 86 * k) / 2).toFixed(3) + ' ' + ((H - 55 * k) / 2).toFixed(3) + ') scale(' + k.toFixed(5) + ')">' +
             qrPath(url, 2, 2, 51) + centerLogo(logo, 2, 2, 51) +
             (rpci ? '<image href="' + esc(rpci.src) + '" x="56" y="3" width="27" height="14" preserveAspectRatio="xMidYMid meet"/>' : '') +
             '<text x="69.5" y="28" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="6" textLength="' + Math.min(27, t.tag.length * 3.3) + '" lengthAdjust="spacingAndGlyphs">' + esc(t.tag) + '</text>' +
             lines +
-            '<text x="69.5" y="52" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="2.3" fill="#777">Escanee para ver la ficha</text></svg>';
+            '<text x="69.5" y="52" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="2.3" fill="#777">Escanee para ver la ficha</text></g></svg>';
         return out;
     }
 
