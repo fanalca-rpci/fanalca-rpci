@@ -830,6 +830,19 @@
                 'image/png,image/jpeg,image/webp,image/svg+xml', 'logo', st, box));
             body.appendChild(uploadCard('Excel de fichas técnicas', 'El mismo Excel de donde salen los PDF (.xlsx o .xlsm). Reemplaza el contenido de todas las fichas.',
                 '.xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12', 'fichas', st, box));
+            var regen = el('<div class="adm-card"><h2 class="adm-h2">Regenerar todo el sitio</h2>' +
+                '<p class="adm-muted">Vuelve a armar las fichas de todos los TAG con lo último guardado (Excel, enlaces, logo y textos). Usalo si algo se ve desactualizado.</p></div>');
+            regen.appendChild(button('🔄 Regenerar el sitio ahora', 'is-ghost is-block', function () {
+                var btn = this;
+                busy(btn, true, 'Enviando…');
+                client.from('site_settings').update({ site_title: st.site_title }).eq('id', 1).select().single().then(function (u) {
+                    busy(btn, false);
+                    if (u.error) return toast(dbError(u.error), 'error');
+                    toast('Listo. El sitio se regenera en unos 15 minutos.');
+                    publishStatus(box, u.data);
+                });
+            }));
+            body.appendChild(regen);
         });
     }
 
