@@ -393,6 +393,17 @@ gh run watch -R <cuenta>/<repo> $(gh run list -R <cuenta>/<repo> -L1 --json data
 
 Reportar solo esa línea. Si falla: `gh run view <id> --log-failed`.
 
+### Supabase despierto (Action `supabase-keepalive.yml`) ✅ validado en FANALCA
+
+El plan gratis de Supabase **pausa el proyecto tras 7 días sin actividad**. `.github/workflows/supabase-keepalive.yml` (viene en el código clonado) hace una consulta real a la base **cada 2 días** leyendo URL y anon key de `site_config.json`: en DEXCO no hay que configurar nada, solo que `site_config.json` tenga el Supabase de DEXCO. Verificar después del primer push:
+
+```bash
+gh workflow run supabase-keepalive.yml -R <cuenta>/<repo>
+gh run watch -R <cuenta>/<repo> $(gh run list -R <cuenta>/<repo> -w supabase-keepalive.yml -L1 --json databaseId -q '.[0].databaseId') --exit-status
+```
+
+⚠️ GitHub **desactiva los Actions programados si el repo pasa 60 días sin commits**. Mientras se siga actualizando el sitio no pasa; si un día el proyecto queda quieto, entrar a GitHub → Actions → "Mantener Supabase activo" → *Enable workflow*. Si Supabase ya se pausó: panel de Supabase → *Restore project*.
+
 ---
 
 ## Parte 11 — QR y cierre
