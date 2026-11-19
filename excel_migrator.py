@@ -435,6 +435,9 @@ def build_nav(
                 f'<li><a{active_cls} href="{rel_prefix}{cat_slug}/{item.filename}">{h(item.tag)}</a></li>'
             )
         out.append('</ul></li>')
+    out.append(
+        f'<li class="nav-admin"><a class="nav-link-admin" href="{rel_prefix}admin/">⚙️ Administración</a></li>'
+    )
     out.append('</ul></nav>')
     return "\n".join(out)
 
@@ -554,6 +557,52 @@ def page_skeleton(
 # ─────────────────────────────────────────────────────────────────────────
 # Renderizado de cada tipo de página
 # ─────────────────────────────────────────────────────────────────────────
+def render_admin_page(items: list[Item], supabase_config: dict) -> str:
+    """Administración web (/admin/): shell propio, sin menú de fichas. La arma admin/app.js."""
+    tag_index = [
+        {"tag": i.tag, "categoria": i.category,
+         "servicio": (i.properties.get("SERVICIO") or "").strip(), "filename": i.filename}
+        for i in sorted(items, key=lambda i: i.tag)
+    ]
+    index_json = json.dumps(tag_index, ensure_ascii=False).replace("</", "<\\/")
+    right = render_logo("../", LOGO_RIGHT_PATH, LOGO_RIGHT_ALT)
+    return f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="robots" content="noindex">
+    <meta name="theme-color" content="{_MOBILE_THEME_COLOR}">
+    <title>Administración — {h(SITE_TITLE)}</title>
+    <link rel="stylesheet" href="../styles.css">
+    <link rel="stylesheet" href="admin.css">
+    <script>
+        window.__SUPABASE_CONFIG__ = {{
+            url: {json.dumps(supabase_config.get("url", ""))},
+            anonKey: {json.dumps(supabase_config.get("anon_key", ""))}
+        }};
+        window.__TAG_INDEX__ = {index_json};
+        window.__SITE__ = {{ title: {json.dumps(SITE_TITLE)}, plant: {json.dumps(BANNER_TITLE_SHORT)} }};
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+</head>
+<body class="adm">
+    <header class="adm-banner">
+        <a class="adm-home" href="../index.html" aria-label="Ir al sitio">⌂</a>
+        <div class="adm-title"><span class="adm-title-main">Administración</span><span class="adm-title-sub">{h(BANNER_TITLE_SHORT)}</span></div>
+        <div class="adm-logo">{right}</div>
+    </header>
+    <div class="adm-offline" id="adm-offline" hidden>Sin conexión. Lo que hagas no se va a guardar.</div>
+    <main class="adm-main" id="admin-app" aria-live="polite"></main>
+    <nav class="adm-nav" id="adm-nav" hidden aria-label="Secciones"></nav>
+    <div class="adm-toast" id="adm-toast" role="status" hidden></div>
+    <script src="../admin_logic.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
+"""
+
+
 def render_maintenance_page(items: list[Item]) -> str:
     """Página pública de últimos mantenimientos (la arma maintenance_feed.js en runtime)."""
     tag_index = [
@@ -1966,7 +2015,7 @@ def generate_site(items: list[Item], output_dir: Path, config: Optional[dict] = 
         "migration_metadata.json", "search-index.json", "search-index.js", "urls.txt",
         "maintenance.css", "maintenance.js",
         "maintenance_feed.css", "maintenance_feed.js", "mantenimientos.html",
-        "maintenance_agenda.js",
+        "maintenance_agenda.js", "admin_logic.js",
     }
     if output_dir.exists():
         for fname in KNOWN_FILES:
@@ -1987,7 +2036,7 @@ def generate_site(items: list[Item], output_dir: Path, config: Optional[dict] = 
     (output_dir / "script.js").write_text(SCRIPT_JS, encoding="utf-8")
     # Histórico de mantenimientos: archivos estáticos propios (no embebidos en Python)
     for static_name in ("maintenance.css", "maintenance.js", "maintenance_feed.css", "maintenance_feed.js",
-                        "maintenance_agenda.js"):
+                        "maintenance_agenda.js", "admin_logic.js"):
         (output_dir / static_name).write_text(
             (REPO_ROOT / static_name).read_text(encoding="utf-8"), encoding="utf-8"
         )
@@ -2025,6 +2074,16 @@ def generate_site(items: list[Item], output_dir: Path, config: Optional[dict] = 
     )
     (output_dir / "mantenimientos.html").write_text(feed_html, encoding="utf-8")
     print("   ✅ mantenimientos.html")
+
+    # Administración web (/admin/): página propia + sus estáticos
+    admin_dir = output_dir / "admin"
+    admin_dir.mkdir(exist_ok=True)
+    (admin_dir / "index.html").write_text(render_admin_page(items, config["supabase"]), encoding="utf-8")
+    for static_name in ("app.js", "admin.css"):
+        (admin_dir / static_name).write_text(
+            (REPO_ROOT / "admin" / static_name).read_text(encoding="utf-8"), encoding="utf-8"
+        )
+    print("   ✅ admin/ (administración web)")
 
     # Páginas por categoría y por item
     total_items = 0

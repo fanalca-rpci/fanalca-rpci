@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="robots" content="noindex">
+    <meta name="theme-color" content="#081c49">
+    <title>Administración — QR PTAR FANALCA</title>
+    <link rel="stylesheet" href="../styles.css">
+    <link rel="stylesheet" href="admin.css">
+    <script>
+        window.__SUPABASE_CONFIG__ = {
+            url: "https://bcpthbpbyyrlemvbrshp.supabase.co",
+            anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjcHRoYnBieXlybGVtdmJyc2hwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5NDMxNDUsImV4cCI6MjExMDUxOTE0NX0.3SYRPLNpflytSSW86zX7bJm6EWRto4qEcSi3stvvTGc"
+        };
+        window.__TAG_INDEX__ = [{"tag": "100-C-01", "categoria": "EQUIPOS", "servicio": "Aire comprimido", "filename": "100-C-01.html"}, {"tag": "100-P-01A", "categoria": "EQUIPOS", "servicio": "Tratamiento de agua residual doméstica", "filename": "100-P-01A.html"}, {"tag": "100-P-01B", "categoria": "EQUIPOS", "servicio": "Tratamiento de agua residual doméstica", "filename": "100-P-01B.html"}, {"tag": "400-C-01A", "categoria": "EQUIPOS", "servicio": "AIRE", "filename": "400-C-01A.html"}, {"tag": "400-C-01B", "categoria": "EQUIPOS", "servicio": "AIRE", "filename": "400-C-01B.html"}, {"tag": "400-MX-01", "categoria": "EQUIPOS", "servicio": "Aire", "filename": "400-MX-01.html"}, {"tag": "400-R-01", "categoria": "TANQUES", "servicio": "Reactor Biológico MBBR", "filename": "400-R-01.html"}, {"tag": "500-TK-01", "categoria": "TANQUES", "servicio": "Agua clarificada", "filename": "500-TK-01.html"}, {"tag": "600-P-01", "categoria": "EQUIPOS", "servicio": "Trasiego de lodos biológicos", "filename": "600-P-01.html"}, {"tag": "600-P-02", "categoria": "EQUIPOS", "servicio": "Trasiego de lodos desde tanque de acondicionamiento de lodos hasta filtro prensa", "filename": "600-P-02.html"}, {"tag": "600-SD-01", "categoria": "TANQUES", "servicio": "Deshidratación de lodos", "filename": "600-SD-01.html"}, {"tag": "600-TK-01", "categoria": "TANQUES", "servicio": "Lodos biológicos", "filename": "600-TK-01.html"}, {"tag": "600-TK-02", "categoria": "TANQUES", "servicio": "Lodos biológicos", "filename": "600-TK-02.html"}, {"tag": "803-P-01", "categoria": "EQUIPOS", "servicio": "Bomba dosificadora", "filename": "803-P-01.html"}, {"tag": "803-TK-01", "categoria": "TANQUES", "servicio": "Polímero deshidratante", "filename": "803-TK-01.html"}];
+        window.__SITE__ = { title: "QR PTAR FANALCA", plant: "PTAR FANALCA" };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+</head>
+<body class="adm">
+    <header class="adm-banner">
+        <a class="adm-home" href="../index.html" aria-label="Ir al sitio">⌂</a>
+        <div class="adm-title"><span class="adm-title-main">Administración</span><span class="adm-title-sub">PTAR FANALCA</span></div>
+        <div class="adm-logo"><img class="banner-logo-img" src="../assets/logos/LogoCliente.png" alt="FANALCA"></div>
+    </header>
+    <div class="adm-offline" id="adm-offline" hidden>Sin conexión. Lo que hagas no se va a guardar.</div>
+    <main class="adm-main" id="admin-app" aria-live="polite"></main>
+    <nav class="adm-nav" id="adm-nav" hidden aria-label="Secciones"></nav>
+    <div class="adm-toast" id="adm-toast" role="status" hidden></div>
+    <script src="../admin_logic.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
