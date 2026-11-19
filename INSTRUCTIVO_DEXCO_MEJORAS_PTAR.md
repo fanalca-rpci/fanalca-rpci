@@ -408,6 +408,14 @@ y generar el sitio una vez con `SITE_SOURCE_VERSION=<version de esa fila en form
 | Enlaces de documentos **en bloque** (subir `TAG_RESOURCES.xlsx`; los editados uno a uno ganan) | 🌐 Sitio |
 | **📥 Importar rutinas base** de la biblioteca (no pisa lo existente, respeta el tope de 5) | 🔧 Rutinas |
 
+**⚠️ Documentos de cada ficha (se escapó en FANALCA, no repetir).** Cada ficha debe tener sus botones "Ficha técnica (PDF)", "Manual" y "Mantenimiento". **No salen solos**: hay que cargar los enlaces. Pasos en DEXCO, apenas se genere el sitio:
+
+1. **Ficha técnica (PDF):** los PDF que vienen junto al Excel (en FANALCA `FANPH2-…-PD-03xx.pdf`). Leer el TAG de cada PDF (`pypdf`, primera página), copiarlos a `docs/assets/fichas/<TAG>.pdf` (los pares A/B comparten PDF) y cargar `tag_resources.specifications` con la URL pública.
+2. **Manual del fabricante:** buscar el oficial por marca y modelo (columna MARCA / MODELO de la ficha). **Solo enlaces verificados** (`curl` → `200 application/pdf`) y de la versión correcta (material, serie). En FANALCA solo se encontraron los de Wilden P1 y P.025 plásticas (Axflow); el resto lo sube el usuario desde ⚙️ Equipos → **📎 Subir PDF**.
+3. Al cargar enlaces en la base, el Action `site-sync` regenera solo. Después: `git pull` antes de generar en local, porque el bot sube `TAG_RESOURCES.xlsx` y `docs/`.
+
+Validado de punta a punta en FANALCA (2026-11-18): cambio en la base → Action → push del bot → Pages → botones en la ficha publicada.
+
 **Logo para QR:** el del banner suele ser blanco y no se ve sobre el QR. Va aparte, a color sobre fondo blanco, en `docs/assets/logos/LogoQR.png` (🌐 Sitio → "Logo para los QR"; migración `20261118160000_qr_logo.sql`). En FANALCA es `LogoCliente_azul.png`. Si falta, usa `LogoCliente.png`.
 
 **`sabana_base.xlsx` ahora trae los 8 tipos de equipo de FANALCA** (bombas sumergibles, neumáticas, sopladores, compresor, filtro prensa, reactor MBBR, tanques, difusor ciclónico) con sus 38 rutinas, letras de TAG y palabras clave, más la centrífuga horizontal de ejemplo. **En DEXCO:** después de subir el Excel de fichas, 🔧 Rutinas → 📥 Importar rutinas base y ⚙️ Equipos → 🪄 Auto-asignar; revisar lo que no coincida. Migraciones de esta parte: `20261118140000_site_settings.sql`, `20261118150000_site_photos_resources.sql`.
