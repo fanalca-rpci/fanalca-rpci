@@ -1,0 +1,37 @@
+# GitHub apaga los Actions programados (como "Mantener Supabase activo") si el
+# repo pasa 60 días sin commits. Una vez al mes, si el último commit tiene 30
+# días o más, este workflow hace un commit mínimo (fecha en .github/keepalive.txt).
+# Si hubo cambios recientes, no hace nada.
+name: Mantener el repo activo
+
+on:
+  schedule:
+    - cron: "41 12 1 * *"   # día 1 de cada mes, 07:41 hora Colombia
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Commit si el repo lleva 30 días quieto
+        run: |
+          LAST=$(git log -1 --format=%ct)
+          NOW=$(date +%s)
+          DAYS=$(( (NOW - LAST) / 86400 ))
+          echo "Último commit hace $DAYS días."
+          if [ "$DAYS" -lt 30 ]; then
+            echo "✅ Repo activo, no hace falta commit."; exit 0
+          fi
+          date -u +%FT%TZ > .github/keepalive.txt
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/keepalive.txt
+          git commit -m "chore: mantener el repo activo ($DAYS días sin cambios)"
+          git push
+          echo "✅ Commit hecho: el contador de 60 días de GitHub vuelve a cero."
