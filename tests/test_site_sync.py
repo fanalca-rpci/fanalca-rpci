@@ -24,14 +24,14 @@ def test_tema_de_color_claro_usa_texto_oscuro():
 
 def test_sin_cambios_si_la_version_coincide():
     plan = S.plan_sync({"version": "v1", "logo_file": "l.png", "logo_version": "a"}, {"source_version": "v1"})
-    assert plan == {"changed": False, "logo": False, "fichas": False}
+    assert plan == {"changed": False, "logo": False, "fichas": False, "qr_logo": False}
 
 
 def test_solo_baja_lo_que_cambio():
     settings = {"version": "v2", "logo_file": "l.png", "logo_version": "a",
                 "fichas_file": "f.xlsm", "fichas_version": "b"}
     meta = {"source_version": "v1", "logo_version": "a", "fichas_version": "x"}
-    assert S.plan_sync(settings, meta) == {"changed": True, "logo": False, "fichas": True}
+    assert S.plan_sync(settings, meta) == {"changed": True, "logo": False, "fichas": True, "qr_logo": False}
 
 
 def test_sin_fila_de_settings_no_hace_nada():

@@ -23,6 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parent
 CONFIG = REPO_ROOT / "site_config.json"
 METADATA = REPO_ROOT / "docs" / "migration_metadata.json"
 LOGO_DEST = REPO_ROOT / "docs" / "assets" / "logos" / "LogoCliente.png"
+QR_LOGO_DEST = REPO_ROOT / "docs" / "assets" / "logos" / "LogoQR.png"
 RESOURCES_XLSX = REPO_ROOT / "TAG_RESOURCES.xlsx"
 FICHAS_BASENAME = "fichas_source"
 
@@ -75,7 +76,7 @@ def plan_sync(settings: dict, meta: dict) -> dict[str, bool]:
         return (changed and bool(settings.get(f"{kind}_file"))
                 and settings.get(f"{kind}_version") != meta.get(f"{kind}_version"))
 
-    return {"changed": changed, "logo": new("logo"), "fichas": new("fichas")}
+    return {"changed": changed, "logo": new("logo"), "fichas": new("fichas"), "qr_logo": new("qr_logo")}
 
 
 def merge_resources(from_file: dict[str, dict[str, str]], rows: list[dict]) -> list[dict]:
@@ -179,6 +180,10 @@ def main() -> int:
             LOGO_DEST.parent.mkdir(parents=True, exist_ok=True)
             LOGO_DEST.write_bytes(_get(public + settings["logo_file"], key))
             log.append(f"🖼️ Logo actualizado.")
+        if plan["qr_logo"]:
+            QR_LOGO_DEST.parent.mkdir(parents=True, exist_ok=True)
+            QR_LOGO_DEST.write_bytes(_get(public + settings["qr_logo_file"], key))
+            log.append(f"🖼️ Logo para QR actualizado.")
 
         if plan["fichas"]:
             ext = Path(settings["fichas_file"]).suffix.lower() or ".xlsx"
@@ -233,7 +238,8 @@ def main() -> int:
         env = dict(os.environ,
                    SITE_SOURCE_VERSION=settings["version"],
                    SITE_FICHAS_VERSION=settings.get("fichas_version") or "",
-                   SITE_LOGO_VERSION=settings.get("logo_version") or "")
+                   SITE_LOGO_VERSION=settings.get("logo_version") or "",
+                   SITE_QR_LOGO_VERSION=settings.get("qr_logo_version") or "")
         _run(["excel_migrator.py", "plantilla_sitio.xlsx", "docs/"], log, env)
         new_meta = json.loads(METADATA.read_text(encoding="utf-8"))
         status.update(ok=True, tags=new_meta.get("total_tags"), categories=new_meta.get("categories"))

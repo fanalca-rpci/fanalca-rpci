@@ -2160,6 +2160,7 @@ def generate_site(items: list[Item], output_dir: Path, config: Optional[dict] = 
         "source_version": os.environ.get("SITE_SOURCE_VERSION", ""),
         "fichas_version": os.environ.get("SITE_FICHAS_VERSION", ""),
         "logo_version": os.environ.get("SITE_LOGO_VERSION", ""),
+        "qr_logo_version": os.environ.get("SITE_QR_LOGO_VERSION", ""),
         "site_title": SITE_TITLE,
         "site_url": SITE_URL,
         "total_tags": total_items,

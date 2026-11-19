@@ -893,6 +893,8 @@
             body.appendChild(form);
             body.appendChild(uploadCard('Logo del cliente', 'Imagen PNG o JPG, idealmente con fondo transparente y texto claro (va sobre el banner).',
                 'image/png,image/jpeg,image/webp,image/svg+xml', 'logo', st, box));
+            body.appendChild(uploadCard('Logo para los QR', 'El logo del cliente a color sobre fondo blanco (va en el centro de cada QR). PNG o JPG.',
+                'image/png,image/jpeg,image/webp', 'qr_logo', st, box));
             body.appendChild(uploadCard('Excel de fichas técnicas', 'El mismo Excel de donde salen los PDF (.xlsx o .xlsm). Reemplaza el contenido de todas las fichas.',
                 '.xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12', 'fichas', st, box));
             body.appendChild(uploadCard('Enlaces de documentos (todos los TAG)', 'Excel TAG_RESOURCES.xlsx con columnas TAG_ID, Specifications, Handbook_Manual y Maintenance. Los enlaces editados uno por uno en ⚙️ Equipos tienen prioridad.',
@@ -973,7 +975,7 @@
             var err = card.querySelector('.adm-error');
             if (file.size > 25 * 1024 * 1024) { err.textContent = 'El archivo pesa más de 25 MB.'; err.hidden = false; return; }
             var go = kind === 'fichas' ? previewFichas(file) : Promise.resolve(true);
-            if (kind === 'logo') {
+            if (kind === 'logo' || kind === 'qr_logo') {
                 go = go.then(function (ok) { return ok && shrinkImage(file, 800).then(function (b) { file = b.size < file.size && file.type !== 'image/png' ? new File([b], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }) : file; return true; }); });
             }
             go.then(function (ok) {
@@ -1008,33 +1010,112 @@
         return card;
     }
 
-    // ── 📱 Códigos QR ────────────────────────────────────────────────────
+    // ── 📱 Códigos QR (formatos físicos de RPCI) ─────────────────────────
+    // Medidas reales en mm. La Mega T-Card es la T-Card al doble (adhesivo).
+    var QR_FORMATS = {
+        tcard: { label: 'T-Card · 8,6 × 5,5 cm', hint: 'Tarjeta para colgar en cada equipo', w: 86, h: 55, vb: 'card', cols: 2 },
+        mega:  { label: 'Mega T-Card · 17,2 × 11 cm', hint: 'Adhesivo para tanques y equipos grandes', w: 172, h: 110, vb: 'card', cols: 1 },
+        key:   { label: 'Key-holder Tag · 5 × 3 cm', hint: 'Mínimo, para instrumentos pequeños', w: 50, h: 30, vb: 'key', cols: 3 },
+    };
+    var LOGO_QR = SITE_ROOT + 'assets/logos/LogoQR.png';
+    var LOGO_QR_FALLBACK = SITE_ROOT + 'assets/logos/LogoCliente.png';
+    var LOGO_RPCI = SITE_ROOT + 'assets/logos/LogoRPCI.png';
+
+    function imgRatio(src) {
+        return new Promise(function (resolve) {
+            var i = new Image();
+            i.onload = function () { resolve({ src: src, r: i.naturalWidth / i.naturalHeight }); };
+            i.onerror = function () { resolve(null); };
+            i.src = src;
+        });
+    }
+
+    function qrPath(text, x, y, size) {
+        var q = window.qrcode(0, 'H');      // corrección alta: aguanta el logo al centro
+        q.addData(text);
+        q.make();
+        var n = q.getModuleCount(), quiet = 1, cell = size / (n + 2 * quiet), d = '';
+        for (var r = 0; r < n; r++) for (var c = 0; c < n; c++) {
+            if (q.isDark(r, c)) d += 'M' + (x + (c + quiet) * cell).toFixed(3) + ' ' + (y + (r + quiet) * cell).toFixed(3) + 'h' + cell.toFixed(3) + 'v' + cell.toFixed(3) + 'h-' + cell.toFixed(3) + 'z';
+        }
+        return '<path d="' + d + '" fill="#000"/>';
+    }
+
+    function centerLogo(logo, x, y, size) {
+        if (!logo) return '';
+        var bw = size * 0.34, bh = Math.min(bw / logo.r, size * 0.24);
+        bw = Math.min(bw, bh * logo.r);
+        var pad = size * 0.025;
+        var cx = x + size / 2, cy = y + size / 2;
+        return '<rect x="' + (cx - bw / 2 - pad) + '" y="' + (cy - bh / 2 - pad) + '" width="' + (bw + 2 * pad) + '" height="' + (bh + 2 * pad) + '" rx="' + pad + '" fill="#fff"/>' +
+            '<image href="' + esc(logo.src) + '" x="' + (cx - bw / 2) + '" y="' + (cy - bh / 2) + '" width="' + bw + '" height="' + bh + '" preserveAspectRatio="xMidYMid meet"/>';
+    }
+
+    function wrapText(text, maxChars, maxLines) {
+        var words = String(text || '').split(/\s+/), lines = [], cur = '';
+        words.forEach(function (w) {
+            if ((cur + ' ' + w).trim().length > maxChars && cur) { lines.push(cur); cur = w; } else cur = (cur + ' ' + w).trim();
+        });
+        if (cur) lines.push(cur);
+        if (lines.length > maxLines) { lines = lines.slice(0, maxLines); lines[maxLines - 1] = lines[maxLines - 1].replace(/.{0,2}$/, '…'); }
+        return lines;
+    }
+
+    function cardSvg(fmt, t, logo, rpci) {
+        var url = fichaUrl(t.tag), out;
+        if (fmt.vb === 'key') {
+            // 50 × 30: QR + TAG
+            out = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 30">' +
+                '<rect x="0.25" y="0.25" width="49.5" height="29.5" rx="2" fill="#fff" stroke="#9aa4ae" stroke-width="0.3" stroke-dasharray="1 0.8"/>' +
+                qrPath(url, 1.5, 1.5, 27) + centerLogo(logo, 1.5, 1.5, 27) +
+                '<text x="39" y="14" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="4.2" textLength="19" lengthAdjust="spacingAndGlyphs">' + esc(t.tag) + '</text>' +
+                '<text x="39" y="19.5" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="2.2" fill="#444">Escanear ficha</text></svg>';
+            return out;
+        }
+        // 86 × 55 (la Mega usa el mismo dibujo al doble de tamaño)
+        var lines = wrapText(t.servicio, 22, 3).map(function (l, i) {
+            return '<text x="69.5" y="' + (36 + i * 3.6) + '" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="2.9" fill="#333">' + esc(l) + '</text>';
+        }).join('');
+        out = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 86 55">' +
+            '<rect x="0.25" y="0.25" width="85.5" height="54.5" rx="3" fill="#fff" stroke="#9aa4ae" stroke-width="0.3" stroke-dasharray="1.2 1"/>' +
+            qrPath(url, 2, 2, 51) + centerLogo(logo, 2, 2, 51) +
+            (rpci ? '<image href="' + esc(rpci.src) + '" x="56" y="3" width="27" height="14" preserveAspectRatio="xMidYMid meet"/>' : '') +
+            '<text x="69.5" y="28" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="6" textLength="' + Math.min(27, t.tag.length * 3.3) + '" lengthAdjust="spacingAndGlyphs">' + esc(t.tag) + '</text>' +
+            lines +
+            '<text x="69.5" y="52" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="2.3" fill="#777">Escanee para ver la ficha</text></svg>';
+        return out;
+    }
+
     function screenQr(box) {
         var cats = TAGS.map(function (t) { return t.categoria; }).filter(function (v, i, a) { return v && a.indexOf(v) === i; });
         box.innerHTML = '<a class="adm-back" href="#mas">‹ Más</a><h1 class="adm-h1">Códigos QR</h1>' +
-            '<p class="adm-muted">Cada QR abre la ficha del equipo. Imprimilos en papel adhesivo o guardalos como PDF.</p>' +
+            '<p class="adm-muted">Cada QR abre la ficha del equipo. Se imprimen a tamaño real con línea de corte.</p>' +
+            '<fieldset class="adm-field"><span>Formato</span><div class="adm-radio" id="qr-fmt">' +
+            Object.keys(QR_FORMATS).map(function (k, i) {
+                var f = QR_FORMATS[k];
+                return '<label><input type="radio" name="qrfmt" value="' + k + '"' + (i === 0 ? ' checked' : '') + '><span><strong>' + esc(f.label) + '</strong><small>' + esc(f.hint) + '</small></span></label>';
+            }).join('') + '</div></fieldset>' +
             '<div class="adm-seg" id="qr-cat"><button type="button" class="is-on" data-c="">Todos</button>' +
             cats.map(function (c) { return '<button type="button" data-c="' + esc(c) + '">' + esc(c.charAt(0) + c.slice(1).toLowerCase()) + '</button>'; }).join('') + '</div>' +
-            '<label class="adm-field"><span>Tamaño</span><select id="qr-size"><option value="3">Mediano (3 por fila)</option><option value="2">Grande (2 por fila)</option><option value="4">Pequeño (4 por fila)</option></select></label>' +
+            '<input type="search" class="adm-input" id="qr-q" placeholder="Filtrar TAG (opcional)" aria-label="Filtrar TAG">' +
             '<button type="button" class="adm-btn is-primary is-block" id="qr-print">🖨️ Imprimir / Guardar PDF</button>' +
-            '<div class="qr-sheet" id="qr-sheet">' + skeleton(2) + '</div>';
+            '<p class="adm-muted" id="qr-count"></p><div class="qr-sheet" id="qr-sheet">' + skeleton(2) + '</div>';
         var sheetEl = box.querySelector('#qr-sheet');
         var cat = '';
+        var assets = Promise.all([loadLib(QR_URL), imgRatio(LOGO_QR).then(function (l) { return l || imgRatio(LOGO_QR_FALLBACK); }), imgRatio(LOGO_RPCI)]);
         function draw() {
-            loadLib(QR_URL).then(function () {
-                var cols = box.querySelector('#qr-size').value;
-                sheetEl.style.setProperty('--qr-cols', cols);
-                sheetEl.innerHTML = '';
-                TAGS.filter(function (t) { return !cat || t.categoria === cat; }).forEach(function (t) {
-                    var q = window.qrcode(0, 'M');
-                    q.addData(fichaUrl(t.tag));
-                    q.make();
-                    var item = el('<figure class="qr-item">' + q.createSvgTag({ cellSize: 4, margin: 2, scalable: true }) +
-                        '<figcaption><strong></strong><span></span></figcaption></figure>');
-                    item.querySelector('strong').textContent = t.tag;
-                    item.querySelector('span').textContent = t.servicio;
-                    sheetEl.appendChild(item);
-                });
+            assets.then(function (a) {
+                var key = box.querySelector('[name=qrfmt]:checked').value;
+                var fmt = QR_FORMATS[key];
+                var q = L.fold(box.querySelector('#qr-q').value);
+                var list = TAGS.filter(function (t) { return (!cat || t.categoria === cat) && (!q || L.fold(t.tag + ' ' + t.servicio).indexOf(q) !== -1); });
+                sheetEl.className = 'qr-sheet qr-' + key;
+                sheetEl.style.setProperty('--qr-w', fmt.w + 'mm');
+                sheetEl.style.setProperty('--qr-h', fmt.h + 'mm');
+                sheetEl.style.setProperty('--qr-cols', fmt.cols);
+                box.querySelector('#qr-count').textContent = list.length + ' etiqueta(s) · ' + fmt.label;
+                sheetEl.innerHTML = list.map(function (t) { return '<div class="qr-card">' + cardSvg(fmt, t, a[1], a[2]) + '</div>'; }).join('') ||
+                    empty('🔎', 'Ningún TAG con ese filtro.');
             }, function () { sheetEl.innerHTML = '<p class="adm-alert">' + esc(L.adminErrorMessage(0)) + '</p>'; });
         }
         Array.prototype.forEach.call(box.querySelectorAll('#qr-cat button'), function (b) {
@@ -1044,7 +1125,8 @@
                 draw();
             });
         });
-        box.querySelector('#qr-size').addEventListener('change', draw);
+        box.querySelector('#qr-fmt').addEventListener('change', draw);
+        box.querySelector('#qr-q').addEventListener('input', draw);
         box.querySelector('#qr-print').addEventListener('click', function () { window.print(); });
         draw();
     }

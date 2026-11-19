@@ -402,11 +402,13 @@ y generar el sitio una vez con `SITE_SOURCE_VERSION=<version de esa fila en form
 |---|---|
 | Resultado de cada publicación: ✅ / ⏳ / ❌ con TAG publicados, avisos (hojas ignoradas, logos descartados) y el registro completo | 🌐 Sitio, arriba (`docs/publish_status.json`, lo escribe `site_sync.py`) |
 | **Vista previa del Excel** antes de subirlo: TAG nuevos, los que quedan sin ficha (avisa si tienen registros), sin categoría, hojas ignoradas | 🌐 Sitio → Excel de fichas |
-| **Códigos QR** por TAG para imprimir o guardar en PDF (2, 3 o 4 por fila, filtro por categoría) | ☰ Más → 📱 Códigos QR |
+| **Códigos QR** a tamaño real con línea de corte, en los formatos físicos de RPCI: **T-Card** 8,6 × 5,5 cm (para colgar), **Mega T-Card** 17,2 × 11 cm (adhesivo para tanques y equipos grandes) y **Key-holder Tag** 5 × 3 cm (instrumentos pequeños). QR con corrección alta (H) y **logo del cliente al centro**; en T-Card y Mega, **logo de RPCI a la derecha del QR**, TAG y servicio. Mismo diseño que `~/createQRSuperRectangles` (TCard 5,5 × 8,6 cm) | ☰ Más → 📱 Códigos QR |
 | **🪄 Auto-asignar** el tipo de equipo a los TAG sin tipo (letra del TAG + palabras clave de `sabana_base.xlsx`) | ⚙️ Equipos |
 | **📷 Fotos del equipo** desde la cámara del celular (se comprimen a 1600 px; salen primero en la ficha) | ⚙️ Equipos → tocar el TAG |
 | Enlaces de documentos **en bloque** (subir `TAG_RESOURCES.xlsx`; los editados uno a uno ganan) | 🌐 Sitio |
 | **📥 Importar rutinas base** de la biblioteca (no pisa lo existente, respeta el tope de 5) | 🔧 Rutinas |
+
+**Logo para QR:** el del banner suele ser blanco y no se ve sobre el QR. Va aparte, a color sobre fondo blanco, en `docs/assets/logos/LogoQR.png` (🌐 Sitio → "Logo para los QR"; migración `20261118160000_qr_logo.sql`). En FANALCA es `LogoCliente_azul.png`. Si falta, usa `LogoCliente.png`.
 
 **`sabana_base.xlsx` ahora trae los 8 tipos de equipo de FANALCA** (bombas sumergibles, neumáticas, sopladores, compresor, filtro prensa, reactor MBBR, tanques, difusor ciclónico) con sus 38 rutinas, letras de TAG y palabras clave, más la centrífuga horizontal de ejemplo. **En DEXCO:** después de subir el Excel de fichas, 🔧 Rutinas → 📥 Importar rutinas base y ⚙️ Equipos → 🪄 Auto-asignar; revisar lo que no coincida. Migraciones de esta parte: `20261118140000_site_settings.sql`, `20261118150000_site_photos_resources.sql`.
 
