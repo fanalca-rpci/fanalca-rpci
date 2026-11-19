@@ -1,6 +1,6 @@
 {
   "source": "plantilla_sitio.xlsx",
-  "generated_at": "2026-11-19T08:59:27.262338",
+  "generated_at": "2026-11-19T12:57:10.184464",
   "source_version": "2026-11-19T01:12:06.890383+00:00",
   "fichas_version": "",
   "logo_version": "",
@@ -319,7 +319,7 @@
         "CONSUMO MÁXIMO DE AIRE (SCFM)": "16",
         "CAUDAL DE OPERACIÓN (LPM)": "14.6",
         "PRESIÓN DE AIRE DE OPERACIÓN (PSI)": "30-90",
-        "ENTRADA DE AIRE (NTP)": "0.25",
+        "ENTRADA DE AIRE (NPT)": "0.25",
         "ENTRADA Y SALIDA DEL FLUIDO (NPT)": "0.5"
       },
       "ficha_tecnica_url": null,
@@ -378,7 +378,7 @@
         "CONSUMO MÁXIMO DE AIRE (SCFM)": "8",
         "CAUDAL DE OPERACIÓN (LPM)": "5.76",
         "PRESIÓN DE AIRE DE OPERACIÓN (PSI)": "60",
-        "ENTRADA DE AIRE (NTP)": "0.125",
+        "ENTRADA DE AIRE (NPT)": "0.125",
         "ENTRADA Y SALIDA DEL FLUIDO (NPT)": "0.25",
         "FILTRO PRENSA": "HARO",
         "CONCENTRACIÓN DE LODOS (g/L)": "1"
