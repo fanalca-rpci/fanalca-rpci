@@ -32,3 +32,7 @@ Los respaldos están en **Releases** del repo privado de respaldos:
 Restaurar `public.dump` en una base temporal (por ejemplo un proyecto Supabase de prueba o `pg_restore -f salida.sql` para verlo como texto), copiar las filas que falten y reinsertarlas con SQL. **No** restaurar encima del proyecto en uso sin respaldo previo del estado actual.
 
 Usar `pg_restore` versión 17 (la de Supabase).
+
+## Si el respaldo solo trae JSON (sin `SUPABASE_DB_URL`)
+
+`base-AAAA-MM-DD.tar.gz` trae `json/<tabla>.json` (todas las tablas de `public`), `json/auth_users.json` (correos y fechas, **sin** contraseñas) y `json/resumen.json` (filas por tabla). Para restaurar: aplicar migraciones en el proyecto nuevo, recrear los usuarios (🧑 Usuarios en `/admin/` o el panel) y reinsertar cada tabla con la API o SQL (`insert … select * from json_populate_recordset(null::public.<tabla>, '<contenido>')`), en orden: catálogos (`equipment_classes`, `maintenance_activities`, `equipment_tags`), `profiles`, `maintenance_records` y sus hijas. Pedírselo a Claude con este archivo.

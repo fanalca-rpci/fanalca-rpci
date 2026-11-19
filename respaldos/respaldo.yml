@@ -31,26 +31,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Cliente de PostgreSQL 17
+      - name: Respaldar la base en JSON (API de Supabase)
         run: |
-          sudo apt-get install -y -qq postgresql-common >/dev/null
-          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
-          sudo apt-get install -y -qq postgresql-client-17 >/dev/null
-          /usr/lib/postgresql/17/bin/pg_dump --version
+          D=$(date -u +%F)
+          echo "D=$D" >> "$GITHUB_ENV"
+          python3 respaldar_tablas.py out/json
 
-      - name: Respaldar la base
+      - name: Volcado PostgreSQL completo (si hay SUPABASE_DB_URL)
         env:
           DB: ${{ secrets.SUPABASE_DB_URL }}
         run: |
-          D=$(date -u +%F)
-          PGD=/usr/lib/postgresql/17/bin/pg_dump
-          mkdir -p out
-          $PGD "$DB" -Fc --no-owner --no-privileges -n public -f out/public.dump
-          $PGD "$DB" -Fc --no-owner --no-privileges --data-only -t auth.users -t auth.identities -f out/auth_usuarios.dump
-          $PGD "$DB" -Fc --no-owner --no-privileges --data-only -t storage.buckets -t storage.objects -f out/storage_metadatos.dump
-          (cd out && tar -czf "../base-$D.tar.gz" *.dump)
+          if [ -z "$DB" ]; then
+            echo "ℹ️ Sin SUPABASE_DB_URL: solo respaldo JSON. Agregarlo da un volcado más fácil de restaurar."
+          else
+            sudo apt-get install -y -qq postgresql-common >/dev/null
+            sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
+            sudo apt-get install -y -qq postgresql-client-17 >/dev/null
+            PGD=/usr/lib/postgresql/17/bin/pg_dump
+            $PGD "$DB" -Fc --no-owner --no-privileges -n public -f out/public.dump
+            $PGD "$DB" -Fc --no-owner --no-privileges --data-only -t auth.users -t auth.identities -f out/auth_usuarios.dump
+            $PGD "$DB" -Fc --no-owner --no-privileges --data-only -t storage.buckets -t storage.objects -f out/storage_metadatos.dump
+            echo "✅ Volcado PostgreSQL listo"
+          fi
+
+      - name: Comprimir la base
+        run: |
+          (cd out && tar -czf "../base-$D.tar.gz" .)
           ls -la "base-$D.tar.gz"
-          echo "D=$D" >> "$GITHUB_ENV"
 
       - name: Respaldar archivos nuevos
         run: python3 respaldar_archivos.py "archivos-$D.zip" | tee /tmp/archivos.log
@@ -58,7 +65,7 @@ jobs:
       - name: Publicar en Releases y borrar respaldos viejos
         run: |
           gh release create "base-$D" "base-$D.tar.gz" --title "Base $D" \
-            --notes "Respaldo de la base de datos del $D (public + usuarios + metadatos de storage)." 2>/dev/null \
+            --notes "Respaldo de la base del $D: tablas en JSON (+ volcado PostgreSQL si hay SUPABASE_DB_URL)." 2>/dev/null \
           || gh release upload "base-$D" "base-$D.tar.gz" --clobber
           if grep -q '^nuevos=[1-9]' /tmp/archivos.log; then
             gh release create "archivos-$D" "archivos-$D.zip" --title "Archivos nuevos $D" \
