@@ -481,7 +481,7 @@ GitHub **desactiva los Actions programados si el repo pasa 60 días sin commits*
 
 ---
 
-## Parte 10b — Respaldo semanal de Supabase ✅ validado en FANALCA (2026-11-19)
+## Parte 10b — Respaldo semanal de Supabase ✅ validado en FANALCA (2026-11-19, JSON + volcado PostgreSQL)
 
 El plan gratis de Supabase **no tiene respaldos restaurables**. La plantilla está en [`respaldos/`](respaldos/): workflow `respaldo.yml`, scripts `respaldar_tablas.py` (todas las tablas en JSON + usuarios, solo con la service_role) y `respaldar_archivos.py` y [`RESTAURAR.md`](respaldos/RESTAURAR.md).
 
@@ -500,6 +500,16 @@ gh secret set SUPABASE_SERVICE_ROLE_KEY -R <cuenta>/<planta>-respaldos   # pegar
 gh secret set SUPABASE_DB_URL -R <cuenta>/<planta>-respaldos             # OPCIONAL: cadena "Session pooler" con contraseña → suma volcado pg_dump
 gh workflow run respaldo.yml -R <cuenta>/<planta>-respaldos               # primera corrida
 ```
+
+**`SUPABASE_DB_URL` — errores reales en FANALCA (tomó 6 intentos):**
+
+| Síntoma en el log | Causa | Arreglo |
+|---|---|---|
+| El secreto aparece en el repo del **sitio** | `gh secret set` sin `-R` o con el repo equivocado | Siempre `-R <cuenta>/<planta>-respaldos`; borrar el del sitio (`gh secret delete … -R <cuenta>/<repo-sitio>`, lo hace el usuario) |
+| `password authentication failed for user "postgres"` | Contraseña vieja/mal copiada (Supabase muestra "postgres" aunque el usuario sea `postgres.<ref>`) | Panel → Project Settings → Database → **Reset database password**, solo letras y números; esperar 2–3 min |
+| `connection … on socket "/var/run/postgresql/…"` / aviso "no empieza con postgresql://" | Se pegó solo la contraseña o la URL `https://…` | Pegar la cadena **completa en una línea**: `postgresql://postgres.<ref>:<contraseña>@aws-1-<región>.pooler.supabase.com:5432/postgres`, **sin corchetes ni comillas** |
+
+Para no pasar por esto: armar la cadena en una nota, revisarla contra el formato de arriba y recién ahí `gh secret set`. El workflow limpia espacios/comillas y, si el volcado falla, igual publica el JSON y termina en rojo (correo).
 
 ## Parte 11 — QR y cierre
 
