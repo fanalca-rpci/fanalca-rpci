@@ -258,7 +258,15 @@ button.adm-menu-item { font: inherit; }
 .qr-sheet { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 8px; }
 .qr-sheet.qr-tcard { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
 .qr-sheet.qr-key { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.qr-card { position: relative; display: block; cursor: pointer; border-radius: 6px; transition: opacity .15s; }
 .qr-card svg { display: block; width: 100%; height: auto; }
+.qr-card:not(.is-sel) { opacity: .35; }
+.qr-pick { position: absolute; top: 6px; left: 6px; z-index: 2; width: 26px; height: 26px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.qr-card.is-sel { box-shadow: 0 0 0 2px var(--accent); }
+.qr-selbar { position: sticky; top: 56px; z-index: 6; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: var(--content-bg, #f6f8fa); padding: 6px 0; margin-top: 4px; }
+.qr-selbar .adm-check { font-weight: 700; }
+.qr-selcount { font-size: 14px; color: var(--text-muted); font-weight: 600; }
 @media print {
     @page { size: letter; margin: 8mm; }
     body.adm { background: #fff; }
@@ -267,7 +275,8 @@ button.adm-menu-item { font: inherit; }
     .adm-main > div > *:not(.qr-sheet) { display: none !important; }
     .adm-main > p { display: none !important; }
     .qr-sheet { display: flex !important; flex-wrap: wrap; gap: 2mm; margin: 0; }
-    .qr-card { width: var(--qr-w); height: var(--qr-h); break-inside: avoid; page-break-inside: avoid; }
+    .qr-card { width: var(--qr-w); height: var(--qr-h); break-inside: avoid; page-break-inside: avoid; opacity: 1 !important; box-shadow: none !important; }
+    .qr-card:not(.is-sel), .qr-pick, .qr-selbar { display: none !important; }
     .qr-card svg { width: var(--qr-w); height: var(--qr-h); }
 }
 .adm-pdf-btn { min-height: 40px; font-size: 14px; margin: -6px 0 14px; padding: 6px 12px; }

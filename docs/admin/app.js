@@ -1116,10 +1116,33 @@
             '<div class="adm-seg" id="qr-cat"><button type="button" class="is-on" data-c="">Todos</button>' +
             cats.map(function (c) { return '<button type="button" data-c="' + esc(c) + '">' + esc(c.charAt(0) + c.slice(1).toLowerCase()) + '</button>'; }).join('') + '</div>' +
             '<input type="search" class="adm-input" id="qr-q" placeholder="Filtrar TAG (opcional)" aria-label="Filtrar TAG">' +
+            '<div class="qr-selbar"><label class="adm-check"><input type="checkbox" id="qr-all" checked> <span id="qr-all-label">Todas</span></label>' +
+            '<span class="qr-selcount" id="qr-count"></span></div>' +
             '<button type="button" class="adm-btn is-primary is-block" id="qr-print">🖨️ Imprimir / Guardar PDF</button>' +
-            '<p class="adm-muted" id="qr-count"></p><div class="qr-sheet" id="qr-sheet">' + skeleton(2) + '</div>';
+            '<div class="qr-sheet" id="qr-sheet">' + skeleton(2) + '</div>';
         var sheetEl = box.querySelector('#qr-sheet');
         var cat = '';
+        var selected = {};                    // TAG → marcado (por defecto todos)
+        TAGS.forEach(function (t) { selected[t.tag] = true; });
+        var visible = [];
+        var allBox = box.querySelector('#qr-all');
+        var printBtn = box.querySelector('#qr-print');
+        function syncSelection() {
+            var n = visible.filter(function (t) { return selected[t.tag]; }).length;
+            allBox.checked = n === visible.length && n > 0;
+            allBox.indeterminate = n > 0 && n < visible.length;
+            box.querySelector('#qr-count').textContent = n + ' de ' + visible.length + ' para imprimir';
+            printBtn.disabled = n === 0;
+            printBtn.textContent = n ? '🖨️ Imprimir / Guardar PDF (' + n + ')' : 'Marcá al menos una etiqueta';
+            Array.prototype.forEach.call(sheetEl.querySelectorAll('.qr-card'), function (c) {
+                c.classList.toggle('is-sel', Boolean(selected[c.dataset.tag]));
+                c.querySelector('input').checked = Boolean(selected[c.dataset.tag]);
+            });
+        }
+        allBox.addEventListener('change', function () {
+            visible.forEach(function (t) { selected[t.tag] = allBox.checked; });
+            syncSelection();
+        });
         var assets = Promise.all([loadLib(QR_URL), imgRatio(LOGO_QR).then(function (l) { return l || imgRatio(LOGO_QR_FALLBACK); }), imgRatio(LOGO_RPCI)]);
         function draw() {
             assets.then(function (a) {
@@ -1131,9 +1154,16 @@
                 sheetEl.style.setProperty('--qr-w', fmt.w + 'mm');
                 sheetEl.style.setProperty('--qr-h', fmt.h + 'mm');
                 sheetEl.style.setProperty('--qr-cols', fmt.cols);
-                box.querySelector('#qr-count').textContent = list.length + ' etiqueta(s) · ' + fmt.label;
-                sheetEl.innerHTML = list.map(function (t) { return '<div class="qr-card">' + cardSvg(fmt, t, a[1], a[2]) + '</div>'; }).join('') ||
-                    empty('🔎', 'Ningún TAG con ese filtro.');
+                visible = list;
+                box.querySelector('#qr-all-label').textContent = cat || q ? 'Todas las de este filtro' : 'Todas';
+                sheetEl.innerHTML = list.map(function (t) {
+                    return '<label class="qr-card" data-tag="' + esc(t.tag) + '"><input type="checkbox" class="qr-pick" aria-label="Imprimir ' + esc(t.tag) + '">' +
+                        cardSvg(fmt, t, a[1], a[2]) + '</label>';
+                }).join('') || empty('🔎', 'Ningún TAG con ese filtro.');
+                Array.prototype.forEach.call(sheetEl.querySelectorAll('.qr-pick'), function (cb) {
+                    cb.addEventListener('change', function () { selected[cb.parentNode.dataset.tag] = cb.checked; syncSelection(); });
+                });
+                syncSelection();
             }, function () { sheetEl.innerHTML = '<p class="adm-alert">' + esc(L.adminErrorMessage(0)) + '</p>'; });
         }
         Array.prototype.forEach.call(box.querySelectorAll('#qr-cat button'), function (b) {
@@ -1145,7 +1175,7 @@
         });
         box.querySelector('#qr-fmt').addEventListener('change', draw);
         box.querySelector('#qr-q').addEventListener('input', draw);
-        box.querySelector('#qr-print').addEventListener('click', function () { window.print(); });
+        printBtn.addEventListener('click', function () { window.print(); });
         draw();
     }
 
