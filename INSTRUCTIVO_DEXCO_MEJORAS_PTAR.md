@@ -103,7 +103,7 @@ Claude no tiene permiso para editar `~/.bashrc`: esa línea la agrega el usuario
 | MCP | Estado en FANALCA | Qué hacer en DEXCO |
 |---|---|---|
 | Supabase de claude.ai | Conectado, pero a **otra** cuenta: `get_project` → *"You do not have permission"* | No sirve para DEXCO salvo que se conecte con la cuenta de DEXCO. Usar el CLI. |
-| Supabase por proyecto (`.mcp.json`) | **No vino en el código** (no estaba commiteado en D'Vida) | Opcional. Crear `.mcp.json` con `{"mcpServers":{"supabase":{"type":"http","url":"https://mcp.supabase.com/mcp?project_ref=<ref>"}}}` y autorizar con `/mcp` usando la cuenta de DEXCO. Sirve para que Claude consulte la base sin pedir comandos. |
+| Supabase por proyecto (`.mcp.json`) | ✅ Configurado en FANALCA (2026-11-19) | Claude corre: `claude mcp add --scope project --transport http supabase "https://mcp.supabase.com/mcp?project_ref=<ref>&features=docs%2Caccount%2Cdatabase%2Cdebugging%2Cdevelopment%2Cfunctions%2Cbranching%2Cfeedback%2Cnotebooks"`. **El usuario autentica** en una terminal normal (no en la extensión del IDE): `claude` → `/mcp` → supabase → Authenticate, **con la cuenta de Supabase de la planta**. El `.mcp.json` solo lleva el ref (público): se commitea. |
 | Claude in Chrome | Disponible | Opcional, para revisar el sitio publicado. |
 
 **Skills / plugins:** el plugin **superpowers** (brainstorming, planes, TDD) ya está instalado. `CLAUDE.md` menciona una skill `browser-automation` que **no existe** en este laptop: en su lugar se usa Chromium headless directo (Parte 6.4).
