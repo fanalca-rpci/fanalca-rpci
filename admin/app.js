@@ -1079,6 +1079,13 @@
         return lines;
     }
 
+    // Marca del orificio para la amarra plástica: mismo tamaño físico en todos los formatos.
+    function punchHole(cx, cy, diameterMm, scale) {
+        var r = diameterMm / 2 / scale, sw = 0.25 / scale, c = r * 0.55;
+        return '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="#fff" stroke="#555" stroke-width="' + sw + '"/>' +
+            '<path d="M' + (cx - c) + ' ' + cy + 'H' + (cx + c) + 'M' + cx + ' ' + (cy - c) + 'V' + (cy + c) + '" stroke="#999" stroke-width="' + sw + '"/>';
+    }
+
     function cardSvg(fmt, t, logo, rpci) {
         var url = fichaUrl(t.tag), out;
         if (fmt.vb === 'key') {
@@ -1086,6 +1093,7 @@
             out = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 30">' +
                 '<rect x="0.25" y="0.25" width="49.5" height="29.5" rx="2" fill="#fff" stroke="#9aa4ae" stroke-width="0.3" stroke-dasharray="1 0.8"/>' +
                 qrPath(url, 1.5, 1.5, 27) + centerLogo(logo, 1.5, 1.5, 27) +
+                punchHole(39, 4.2, 3.5, 1) +
                 '<text x="39" y="14" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="4.2" textLength="19" lengthAdjust="spacingAndGlyphs">' + esc(t.tag) + '</text>' +
                 '<text x="39" y="19.5" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="2.2" fill="#444">Escanear ficha</text></svg>';
             return out;
@@ -1100,10 +1108,11 @@
             '<rect x="0.25" y="0.25" width="' + (W - 0.5) + '" height="' + (H - 0.5) + '" rx="3" fill="#fff" stroke="#9aa4ae" stroke-width="0.3" stroke-dasharray="1.2 1"/>' +
             '<g transform="translate(' + ((W - 86 * k) / 2).toFixed(3) + ' ' + ((H - 55 * k) / 2).toFixed(3) + ') scale(' + k.toFixed(5) + ')">' +
             qrPath(url, 2, 2, 51) + centerLogo(logo, 2, 2, 51) +
-            (rpci ? '<image href="' + esc(rpci.src) + '" x="56" y="3" width="27" height="14" preserveAspectRatio="xMidYMid meet"/>' : '') +
+            (rpci ? '<image href="' + esc(rpci.src) + '" x="56" y="8.5" width="27" height="10.5" preserveAspectRatio="xMidYMid meet"/>' : '') +
             '<text x="69.5" y="28" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="6" textLength="' + Math.min(27, t.tag.length * 3.3) + '" lengthAdjust="spacingAndGlyphs">' + esc(t.tag) + '</text>' +
             lines +
-            '<text x="69.5" y="52" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="2.3" fill="#777">Escanee para ver la ficha</text></g></svg>';
+            '<text x="69.5" y="52" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="2.3" fill="#777">Escanee para ver la ficha</text></g>' +
+            punchHole(((W - 86 * k) / 2 + 69.5 * k), 4.2, 4.5, fmt.w / W) + '</svg>';
         return out;
     }
 
