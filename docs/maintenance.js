@@ -316,7 +316,10 @@
         var input = overlay.querySelector('textarea');
         var errorBox = overlay.querySelector('.maint-form-error');
         Array.prototype.forEach.call(overlay.querySelectorAll('[data-reason]'), function (b) {
-            b.addEventListener('click', function () { input.value = b.dataset.reason; input.focus(); });
+            b.addEventListener('click', function () {
+                Array.prototype.forEach.call(overlay.querySelectorAll('[data-reason]'), function (o) { o.classList.toggle('is-on', o === b); });
+                input.value = b.dataset.reason;
+            });
         });
         overlay.querySelector('[data-action="cancel"]').addEventListener('click', function () { overlay.remove(); });
         overlay.querySelector('[data-action="ok"]').addEventListener('click', function (evt) {
@@ -349,6 +352,7 @@
             '<fieldset class="maint-field"><legend>Rutinas a hacer ese día</legend>' +
             acts.map(function (r) {
                 var info = Agenda.statusInfo(r);
+                if (r.status === 'sin_registro') info = { text: '⚪ Nunca registrada' };
                 var pre = r.status === 'vencido' || r.status === 'proximo';
                 return '<label class="maint-check"><input type="checkbox" value="' + escapeHtml(r.activity_id) + '"' + (pre ? ' checked' : '') +
                     ' data-overdue="' + (r.status === 'vencido' ? 1 : 0) + '"> <span>' + escapeHtml(r.activity_name) +
@@ -1222,7 +1226,7 @@
 
         function selectedActivities() {
             return Array.prototype.map.call(
-                activitiesBox.querySelectorAll('input[type="checkbox"]:checked:not(:disabled)'),
+                activitiesBox.querySelectorAll('input[type="checkbox"]:checked:not([data-included="1"])'),
                 function (box) { return box.value; });
         }
 
@@ -1252,15 +1256,17 @@
         function syncIncluded() {
             var boxes = activitiesBox.querySelectorAll('input[type="checkbox"]');
             Array.prototype.forEach.call(boxes, function (b) {
-                if (b.disabled) { b.disabled = false; b.checked = b.dataset.manual === '1'; }
+                if (b.dataset.included === '1') { b.dataset.included = '0'; b.checked = b.dataset.manual === '1'; }
+                b.parentNode.classList.remove('is-included');
             });
             var parents = Agenda.includedBy(selectedActivities(), includes);
             Array.prototype.forEach.call(boxes, function (b) {
                 var note = b.parentNode.querySelector('.maint-included-note');
                 if (parents[b.value]) {
                     b.checked = true;
-                    b.disabled = true;
-                    note.textContent = '✓ Incluida en «' + (actNames[parents[b.value]] || '') + '»';
+                    b.dataset.included = '1';
+                    b.parentNode.classList.add('is-included');
+                    note.textContent = '✓ Incluida en «' + String(actNames[parents[b.value]] || '').split(' (')[0] + '»';
                     note.hidden = false;
                 } else {
                     note.hidden = true;
@@ -1280,6 +1286,8 @@
             var box = label.querySelector('input');
             box.checked = restore.indexOf(a.id) !== -1;
             box.dataset.manual = box.checked ? '1' : '0';
+            // Incluida en otra marcada: queda fija (se desmarca quitando la mayor).
+            box.addEventListener('click', function (e) { if (box.dataset.included === '1') e.preventDefault(); });
             box.addEventListener('change', function () {
                 box.dataset.manual = box.checked ? '1' : '0';
                 syncIncluded();
@@ -1317,7 +1325,7 @@
                         all.addEventListener('click', function () {
                             g.due.forEach(function (it) {
                                 var b = activitiesBox.querySelector('input[value="' + it.activity.id + '"]');
-                                if (b && !b.disabled) { b.checked = true; b.dataset.manual = '1'; }
+                                if (b && b.dataset.included !== '1') { b.checked = true; b.dataset.manual = '1'; }
                             });
                             syncIncluded(); syncNextField(); saveDraft(tagId, currentFields());
                         });

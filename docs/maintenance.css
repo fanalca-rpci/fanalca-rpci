@@ -563,3 +563,13 @@
 .maint-chip { border: 1px solid var(--border, #d0d7de); background: var(--card-bg, #fff); color: inherit; border-radius: 999px; padding: 8px 12px; font-size: 0.85rem; min-height: 40px; cursor: pointer; }
 .maint-chip:active { background: #eef2f7; }
 .maint-modal fieldset { border: 0; padding: 0; margin: 8px 0; max-height: 45vh; overflow: auto; }
+/* Pulido móvil */
+fieldset.maint-activities { border: 0; padding: 0; margin: 0; min-width: 0; }
+fieldset.maint-activities > legend { padding: 0; margin-bottom: 4px; font-weight: 600; }
+.maint-upcoming-main .maint-btn { flex: 1 1 0; min-width: 96px; min-height: 44px; margin-left: 0; white-space: nowrap; }
+.maint-chip.is-on { background: var(--accent, #081c49); border-color: var(--accent, #081c49); color: #fff; }
+.maint-modal textarea { min-height: 64px; }
+.maint-check input:disabled { accent-color: #1a7f37; }
+.maint-check input:disabled + span { opacity: 1; color: var(--text-muted, #57606a); }
+.maint-check.is-included { background: #eefbf1; border-color: #a7e3b6; }
+.maint-check.is-included input { accent-color: #1a7f37; }

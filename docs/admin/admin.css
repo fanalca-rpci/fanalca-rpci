@@ -287,3 +287,4 @@ button.adm-menu-item { font: inherit; }
 .adm-includes small { display: block; color: var(--muted, #57606a); }
 .adm-skip { display: flex; flex-direction: column; gap: 2px; text-decoration: none; color: inherit; border-left: 4px solid #d29922; }
 .adm-skip small { color: var(--muted, #57606a); }
+.adm-field[hidden], .adm-form [hidden] { display: none !important; }
