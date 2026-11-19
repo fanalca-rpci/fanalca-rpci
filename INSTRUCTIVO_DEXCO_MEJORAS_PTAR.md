@@ -10,7 +10,28 @@ Pasos para montar el sitio de fichas técnicas con QR + mantenimientos (Supabase
 
 **Regla de oro:** un proyecto = un repo de GitHub + un proyecto de Supabase + una cuenta de Gmail. Nada se comparte con FANALCA ni con D'Vida. Los mantenimientos se guardan por TAG en texto: si dos plantas comparten base, un `100-P-01A` de una se mezcla con el de la otra.
 
-**Tiempo en FANALCA:** ~3 h hasta el sitio publicado con logo y colores (sin contar Supabase ni usuarios).
+**Tiempo en FANALCA:** ~3 h hasta el sitio publicado con logo y colores (sin contar Supabase ni usuarios). **Meta en DEXCO: la mitad**, siguiendo la ruta rápida.
+
+## Ruta rápida (en orden; el detalle está en cada parte)
+
+| # | Paso | Quién | Parte |
+|---|---|---|---|
+| 1 | Pedir los datos: Gmail, repo GitHub (público), Supabase (ref, URL, anon key), carpeta de fichas, web del cliente, personas y perfiles | Claude pregunta | 0 |
+| 2 | Revisar herramientas y avisar lo que falte (CLI Supabase **completa**, `gh`, sesiones) | Claude | 1 |
+| 3 | Clonar el código de FANALCA sin `.git`, `git init -b master` | Claude | 2 |
+| 4 | `gh auth login` y `supabase login` con las cuentas de DEXCO | **Usuario** (abre navegador) | 3 |
+| 5 | Quitar datos de FANALCA (Excel, fichas, fotos, `assets/fichas/`, logos, `TAG_RESOURCES.xlsx`) y reemplazar URLs | Claude | 4 |
+| 6 | Buscar el **Excel** de fichas (no los PDF), revisar hojas y convertir | Claude | 5 |
+| 7 | Logo y colores desde la web del cliente; logo **a color** para el QR (`LogoQR.png`) | Claude | 6, 9.6 |
+| 8 | `site_config.json`, `git remote`, generar, revisar a 360/390 px | Claude | 6 |
+| 9 | Crear repo, push, activar Pages; comprobar Actions | Claude (con confirmación) | 7, 10 |
+| 10 | `supabase link` (pide contraseña) | **Usuario** | 8.1 |
+| 11 | `supabase db push --linked --yes` (todas las migraciones) + `functions deploy admin-users --use-api` + sembrar `site_settings` | Claude | 8.1, 9.6 |
+| 12 | Cerrar auto-registro; crear el primer usuario oficina y darle perfil | **Usuario** + Claude | 8.2 |
+| 13 | **Fichas PDF por TAG y manuales** del fabricante (solo enlaces verificados) | Claude | 9.6 ⚠️ |
+| 14 | Desde `/admin/`: 📥 Importar rutinas base → 🪄 Auto-asignar → revisar | **Usuario** (celular) o Claude | 9.4, 9.6 |
+| 15 | Prueba en el celular: usuario de prueba, registrar, foto, QR T-Card impresa y escaneada | **Usuario** | 9.6 |
+| 16 | Adaptar `CLAUDE.md` a DEXCO y guardar las cuentas en la memoria de Claude | Claude | 11 |
 
 ---
 
