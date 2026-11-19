@@ -380,7 +380,19 @@ URL `…/admin/`. Lo que reemplaza del escritorio:
 | Exportar sábana | ☰ Más → Descargar (rutinas, equipos, registros 12 meses) en CSV para Excel |
 | — (se hacía en el panel de Supabase) | 👥 Usuarios + 🔑 Mi cuenta |
 
-**Todavía solo en escritorio / con Claude:** generar el sitio con un Excel nuevo, logo, color, títulos y enlaces de documentos por TAG (`TAG_RESOURCES.xlsx`). **Fuera a propósito:** agenda y programación manual (el calendario se define después).
+**🌐 Sitio desde el celular** (☰ Más → Sitio): títulos, color, enlace y archivo del logo, Excel de fichas; y en ⚙️ Equipos, los enlaces de Especificaciones / Manual / Mantenimiento por TAG. Se guarda en Supabase (`site_settings`, `tag_resources`, bucket público `site-sources`) y el Action **`site-sync.yml`** (cada 15 min) regenera `docs/` con `site_sync.py` y hace push. La pantalla muestra "⏳ En cola" o "✅ Publicado" comparando `site_settings.version` con `docs/migration_metadata.json`.
+
+Para DEXCO, después de `supabase db push`, **sembrar la fila** (si no, la pantalla dice "Falta la configuración inicial"), con `accent` vacío para no pisar el tema armado a mano:
+
+```sql
+insert into public.site_settings (id, site_title, banner_title_full, banner_title_short, logo_href)
+values (1, '<site_title>', '<banner_title_full>', '<banner_title_short>', '<web del cliente>')
+on conflict (id) do nothing;
+```
+
+y generar el sitio una vez con `SITE_SOURCE_VERSION=<version de esa fila en formato REST>` para que el Action no regenere de entrada (ver cómo en la sesión de FANALCA: `curl …/rest/v1/site_settings?select=version`). Verificar con `gh workflow run site-sync.yml` → "Sin cambios".
+
+**Fuera a propósito:** agenda y programación manual (el calendario se define después). `gui.py` queda solo como respaldo.
 
 **Para DEXCO:** todo viene en el código. Pasos: `supabase db push --linked` + `supabase functions deploy admin-users --project-ref <ref> --use-api` + regenerar el sitio + push. Prueba desde el celular: entrar como oficina, crear un técnico, entrar con él (ve solo Resumen, Mis registros, Mi cuenta), desactivarlo.
 
