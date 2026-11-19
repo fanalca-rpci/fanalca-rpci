@@ -71,3 +71,41 @@ test('groupByTag conserva el orden', () => {
     ]);
     assert.deepEqual(groups.map(g => [g.tag, g.rows.map(r => r.activity_name)]), [['X', ['1', '3']], ['Y', ['2']]]);
 });
+
+// ── Formulario: urgencia e incluidas ──
+const ACTS = [{ id: 'a1' }, { id: 'a2' }, { id: 'a3' }, { id: 'a4' }, { id: 'a5' }];
+const ROWS = [
+    { activity_id: 'a1', status: 'vencido', days_overdue: 5, due_date: '2026-11-14', source: 'automatico' },
+    { activity_id: 'a2', status: 'proximo', due_date: '2026-11-25', source: 'automatico' },
+    { activity_id: 'a3', status: 'sin_registro', due_date: null, source: 'automatico' },
+    { activity_id: 'a4', status: 'al_dia', due_date: '2027-02-01', source: 'automatico' },
+];
+
+test('groupActivities reparte por urgencia (a5 sin fila = nunca)', () => {
+    const g = A.groupActivities(ACTS, ROWS, '2026-11-19');
+    assert.deepEqual(g.due.map(x => x.activity.id), ['a1', 'a2']);
+    assert.deepEqual(g.never.map(x => x.activity.id), ['a3', 'a5']);
+    assert.deepEqual(g.rest.map(x => x.activity.id), ['a4']);
+    assert.equal(A.urgencyText(g.due[0], '2026-11-19'), '🔴 Vencida hace 5 días');
+    assert.equal(A.urgencyText(g.due[1], '2026-11-19'), '🟠 Vence en 6 días');
+});
+
+test('groupActivities: la fila manual manda sobre la automática', () => {
+    const rows = [
+        { activity_id: 'a4', status: 'proximo', due_date: '2026-11-20', source: 'manual' },
+        { activity_id: 'a4', status: 'al_dia', due_date: '2027-02-01', source: 'automatico' },
+    ];
+    assert.deepEqual(A.groupActivities([{ id: 'a4' }], rows, '2026-11-19').due.map(x => x.activity.id), ['a4']);
+});
+
+test('includedBy / expandIncludes: transitivo, sin duplicar lo ya marcado', () => {
+    const inc = [
+        { activity_id: 'anual', included_id: 'semestral' },
+        { activity_id: 'semestral', included_id: 'mensual' },
+        { activity_id: 'semestral', included_id: 'trimestral' },
+    ];
+    assert.deepEqual(A.includedBy(['anual'], inc), { semestral: 'anual', mensual: 'anual', trimestral: 'anual' });
+    assert.deepEqual(A.includedBy(['semestral', 'mensual'], inc), { trimestral: 'semestral' });
+    assert.deepEqual(A.expandIncludes(['x'], inc), ['x']);
+    assert.deepEqual(A.expandIncludes(['semestral'], inc).sort(), ['mensual', 'semestral', 'trimestral']);
+});

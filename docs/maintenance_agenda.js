@@ -141,7 +141,78 @@
         return groups;
     }
 
+
+    // ── Formulario de registro: urgencia y rutinas incluidas ────────────────
+    var SOON_DAYS = 14;
+
+    // Reparte las actividades del TAG por urgencia según su fila de agenda.
+    // due = vencidas + próximas (≤14 días), never = nunca registradas, rest = al día.
+    function groupActivities(activities, agendaRows, today) {
+        var byAct = {};
+        (agendaRows || []).forEach(function (r) {
+            if (r.activity_id && (!byAct[r.activity_id] || r.source === 'manual')) byAct[r.activity_id] = r;
+        });
+        var out = { due: [], never: [], rest: [] };
+        activities.forEach(function (a) {
+            var r = byAct[a.id];
+            var item = { activity: a, row: r || null, urgency: 'al_dia' };
+            if (r && r.status === 'vencido') item.urgency = 'vencido';
+            else if (r && r.due_date && daysBetween(today, r.due_date) <= SOON_DAYS) item.urgency = 'proximo';
+            else if (!r || r.status === 'sin_registro') item.urgency = 'nunca';
+            if (item.urgency === 'vencido' || item.urgency === 'proximo') out.due.push(item);
+            else if (item.urgency === 'nunca') out.never.push(item);
+            else out.rest.push(item);
+        });
+        out.due.sort(function (x, y) {
+            if (x.urgency !== y.urgency) return x.urgency === 'vencido' ? -1 : 1;
+            return (x.row.due_date || '') < (y.row.due_date || '') ? -1 : 1;
+        });
+        return out;
+    }
+
+    function urgencyText(item, today) {
+        if (item.urgency === 'vencido') {
+            var d = item.row.days_overdue || 0;
+            return '🔴 Vencida hace ' + d + (d === 1 ? ' día' : ' días');
+        }
+        if (item.urgency === 'proximo') {
+            var n = daysBetween(today, item.row.due_date);
+            return '🟠 ' + (n <= 0 ? 'Vence hoy' : 'Vence en ' + n + (n === 1 ? ' día' : ' días'));
+        }
+        if (item.urgency === 'nunca') return '⚪ Nunca registrada';
+        return item.row && item.row.due_date ? '🟢 ' + formatDate(item.row.due_date) : '';
+    }
+
+    // includes = [{activity_id, included_id}]. Devuelve {id: idDeLaMayorQueLaIncluye}
+    // para todo lo que queda incluido (transitivo) por lo seleccionado.
+    function includedBy(selectedIds, includes) {
+        var children = {};
+        (includes || []).forEach(function (i) {
+            (children[i.activity_id] = children[i.activity_id] || []).push(i.included_id);
+        });
+        var out = {};
+        var stack = selectedIds.map(function (id) { return [id, id]; });
+        while (stack.length) {
+            var cur = stack.pop();
+            (children[cur[0]] || []).forEach(function (c) {
+                if (out[c] || selectedIds.indexOf(c) !== -1) return;
+                out[c] = cur[1];
+                stack.push([c, cur[1]]);
+            });
+        }
+        return out;
+    }
+
+    function expandIncludes(selectedIds, includes) {
+        return selectedIds.concat(Object.keys(includedBy(selectedIds, includes)));
+    }
+
     var api = {
+        SOON_DAYS: SOON_DAYS,
+        groupActivities: groupActivities,
+        urgencyText: urgencyText,
+        includedBy: includedBy,
+        expandIncludes: expandIncludes,
         CRITICAL_DAYS: CRITICAL_DAYS,
         FILTERS: FILTERS,
         SOURCE_LABEL: SOURCE_LABEL,

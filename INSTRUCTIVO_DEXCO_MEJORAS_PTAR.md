@@ -29,7 +29,7 @@ Pasos para montar el sitio de fichas técnicas con QR + mantenimientos (Supabase
 | 11 | `supabase db push --linked --yes` (todas las migraciones) + `functions deploy admin-users --use-api` + sembrar `site_settings` | Claude | 8.1, 9.6 |
 | 12 | Cerrar auto-registro; crear el primer usuario oficina y darle perfil | **Usuario** + Claude | 8.2 |
 | 13 | **Fichas PDF por TAG y manuales** del fabricante (solo enlaces verificados) | Claude | 9.6 ⚠️ |
-| 14 | Desde `/admin/`: 📥 Importar rutinas base → 🪄 Auto-asignar → revisar | **Usuario** (celular) o Claude | 9.4, 9.6 |
+| 14 | Desde `/admin/`: 📥 Importar rutinas base → 🪄 Auto-asignar → revisar; luego **rutinas incluidas** (`dexco_rutinas_incluidas.sql`) | **Usuario** (celular) o Claude | 9.4, 9.6, 9.7 |
 | 15 | Prueba en el celular: usuario de prueba, registrar, foto, QR T-Card impresa y escaneada | **Usuario** | 9.6 |
 | 16 | Adaptar `CLAUDE.md` a DEXCO y guardar las cuentas en la memoria de Claude | Claude | 11 |
 
@@ -442,6 +442,31 @@ Validado de punta a punta en FANALCA (2026-11-18): cambio en la base → Action 
 **`sabana_base.xlsx` ahora trae los 8 tipos de equipo de FANALCA** (bombas sumergibles, neumáticas, sopladores, compresor, filtro prensa, reactor MBBR, tanques, difusor ciclónico) con sus 38 rutinas, letras de TAG y palabras clave, más la centrífuga horizontal de ejemplo. **En DEXCO:** después de subir el Excel de fichas, 🔧 Rutinas → 📥 Importar rutinas base y ⚙️ Equipos → 🪄 Auto-asignar; revisar lo que no coincida. Migraciones de esta parte: `20261118140000_site_settings.sql`, `20261118150000_site_photos_resources.sql`.
 
 **Para DEXCO:** todo viene en el código. Pasos: `supabase db push --linked` + `supabase functions deploy admin-users --project-ref <ref> --use-api` + regenerar el sitio + push. Prueba desde el celular: entrar como oficina, crear un técnico, entrar con él (ve solo Resumen, Mis registros, Mi cuenta), desactivarlo.
+
+### 9.7 Registro inteligente: urgencia, rutinas incluidas, visitas y "no se pudo" ✅ (FANALCA, 2026-11-19)
+
+Pedido del usuario después de revisar cómo se registra. Migración `20261119120000_visitas_incluidas_no_realizadas.sql` (aditiva) + datos `supabase/datos/fanalca_rutinas_incluidas.sql`. **En DEXCO viene en el código:** solo hace falta el `db push` y armar las inclusiones de sus rutinas (paso 4).
+
+| Mejora | Qué ve el usuario (celular) | Cómo funciona |
+|---|---|---|
+| **1. Rutinas por urgencia al registrar** | En el formulario: arriba "Para hacer ahora · aprovechá la visita" (🔴 vencidas y 🟠 las que vencen en ≤14 días) con botón "✔ Marcar estas N"; luego "Nunca registradas"; "Al día" plegado. **No se marcan solas**: el técnico confirma lo que hizo | `MaintAgenda.groupActivities` / `urgencyText` en `maintenance_agenda.js` (lee `maintenance_agenda`; si hay manual, manda la manual) |
+| **2. Programar visita** (oficina) | Ficha → Programados → "📅 Programar visita (varias rutinas)": fecha + casillas (vencidas/próximas premarcadas) + nota, **obligatoria si hay vencidas** | `rpc('schedule_visit', {p_tag, p_activity_ids, p_date, p_note})`: llama `schedule_manual(…, p_replace = true)` por rutina, todo o nada |
+| **3. Rutinas que incluyen otras** | Al marcar la mayor, las incluidas se marcan solas con "✓ Incluida en «…»". En el admin, 🔧 Rutinas → tocar la rutina → "Al hacerla también quedan hechas"; la lista muestra "· incluye N" | Tabla `maintenance_activity_includes` (mismo tipo de equipo, lo valida un trigger). `create_maintenance_record` **expande en el servidor** (transitivo, solo activas): aunque otro cliente mande solo la mayor, las menores quedan registradas y su reloj se reinicia |
+| **4. "🚫 No se pudo"** (técnico u oficina) | En cada fila de Programados: motivos rápidos (sin repuesto, equipo en operación, sin acceso, sin personal) o texto libre. La fila muestra "🚫 No se pudo el dd/mm: motivo". El admin → Resumen lista las de los últimos 30 días | Tabla `maintenance_skips` (lectura pública, alta de miembros activos con `created_by = auth.uid()`, borra oficina). **No reinicia el reloj**: la rutina sigue vencida |
+
+**Inclusiones cargadas en FANALCA (criterio: solo si hacer la mayor obliga a hacer la menor):**
+- Difusor: anclajes/estado (anual) ⊃ sacar y lavar parrilla (semestral) ⊃ burbujeo (mensual) + fugas (trimestral).
+- Bomba centrífuga sumergible: cambio de rodamientos ⊃ sello mecánico ⊃ limpieza general.
+- Bomba neumática: diafragmas y O-ring ⊃ cheques.
+- Reactor MBBR: lavado general ⊃ inspección estructural + limpieza del compartimiento S-L.
+- Compresor: revisión de válvulas y culata (anual) ⊃ limpieza del filtro de aspiración.
+- Sopladores, filtro prensa y tanques: ninguna.
+
+**Pasos en DEXCO:**
+1. `supabase db push --linked --dry-run` → debe listar solo lo nuevo → `supabase db push --linked --yes`.
+2. Copiar `fanalca_rutinas_incluidas.sql` a `dexco_rutinas_incluidas.sql`. Los nombres de tipo y rutina deben coincidir con los de DEXCO (usa `like`). Aplicar con `supabase db query --linked -f …` y listar las parejas para revisarlas con el usuario.
+3. Probar en la nube **sin dejar rastro**: un solo archivo SQL con `begin;`, `set_config('request.jwt.claims', …sub de un oficina…)`, `set local role authenticated;`, las llamadas guardadas en `temp table`, **un único `select` final** que junte todo (`db query` solo muestra el último resultado) y `rollback;`. Después confirmar con un conteo que no quedó nada. Así se validó en FANALCA: 3 rutinas hechas al registrar la parrilla, una visita de 2 rutinas y un "no se pudo".
+4. En el celular: registrar en un equipo con una rutina mayor y ver que las incluidas salgan marcadas; programar una visita desde la ficha (oficina); marcar "🚫 No se pudo" y verlo en Resumen.
 
 ### 9.5 Administración web por perfiles — plan (FANALCA, 2026-11-18)
 

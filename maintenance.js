@@ -287,6 +287,105 @@
         });
     }
 
+    // ── No realizada: queda constancia + motivo, sin reiniciar el reloj ────
+    var SKIP_REASONS = ['Sin repuesto o insumo', 'Equipo en operación / no se pudo parar', 'Sin acceso o sin herramienta', 'Sin personal o sin tiempo'];
+
+    function fetchSkips(client, tagId) {
+        return client.from('maintenance_skips').select('activity_id, skipped_on, reason')
+            .eq('tag_id', tagId).order('created_at', { ascending: false }).limit(50)
+            .then(function (r) {
+                var last = {};
+                ((r && r.data) || []).forEach(function (x) { if (x.activity_id && !last[x.activity_id]) last[x.activity_id] = x; });
+                return last;
+            }).catch(function () { return {}; });
+    }
+
+    function openSkipModal(client, row, onDone) {
+        var overlay = openModal(
+            '<h3>No se pudo hacer — ' + escapeHtml(row.activity_name) + '</h3>' +
+            '<p class="maint-modal-help">Queda en el historial con el motivo. La rutina sigue pendiente.</p>' +
+            '<div class="maint-chips">' + SKIP_REASONS.map(function (t) {
+                return '<button type="button" class="maint-chip" data-reason="' + escapeHtml(t) + '">' + escapeHtml(t) + '</button>';
+            }).join('') + '</div>' +
+            '<label class="maint-field">Motivo<textarea name="reason" rows="2" maxlength="300"></textarea></label>' +
+            '<div class="maint-form-error" hidden></div>' +
+            '<div class="maint-form-buttons">' +
+            '  <button type="button" class="maint-btn maint-btn-warning" data-action="ok">Guardar</button>' +
+            '  <button type="button" class="maint-btn maint-btn-secondary" data-action="cancel">Cancelar</button>' +
+            '</div>');
+        var input = overlay.querySelector('textarea');
+        var errorBox = overlay.querySelector('.maint-form-error');
+        Array.prototype.forEach.call(overlay.querySelectorAll('[data-reason]'), function (b) {
+            b.addEventListener('click', function () { input.value = b.dataset.reason; input.focus(); });
+        });
+        overlay.querySelector('[data-action="cancel"]').addEventListener('click', function () { overlay.remove(); });
+        overlay.querySelector('[data-action="ok"]').addEventListener('click', function (evt) {
+            var reason = input.value.trim();
+            if (reason.length < 3) { errorBox.textContent = 'Elegí o escribí el motivo.'; errorBox.hidden = false; return; }
+            evt.target.disabled = true;
+            client.from('maintenance_skips').insert({ tag_id: row.tag_id, activity_id: row.activity_id, reason: reason }).then(function (r) {
+                if (r.error) throw r.error;
+                overlay.remove();
+                onDone();
+            }).catch(function (err) {
+                evt.target.disabled = false;
+                errorBox.textContent = 'No se pudo guardar: ' + err.message;
+                errorBox.hidden = false;
+            });
+        });
+    }
+
+    // ── Programar visita: varias rutinas, misma fecha (solo oficina) ───────
+    function openVisitModal(client, tagId, rows, onDone) {
+        var seen = {};
+        var acts = rows.filter(function (r) {
+            if (!r.activity_id || seen[r.activity_id] || r.status === 'sin_fecha') return false;
+            seen[r.activity_id] = true;
+            return true;
+        });
+        var overlay = openModal(
+            '<h3>📅 Programar visita — ' + escapeHtml(tagId) + '</h3>' +
+            '<label class="maint-field">Fecha<input type="date" name="date" required></label>' +
+            '<fieldset class="maint-field"><legend>Rutinas a hacer ese día</legend>' +
+            acts.map(function (r) {
+                var info = Agenda.statusInfo(r);
+                var pre = r.status === 'vencido' || r.status === 'proximo';
+                return '<label class="maint-check"><input type="checkbox" value="' + escapeHtml(r.activity_id) + '"' + (pre ? ' checked' : '') +
+                    ' data-overdue="' + (r.status === 'vencido' ? 1 : 0) + '"> <span>' + escapeHtml(r.activity_name) +
+                    '<small class="maint-urg">' + escapeHtml(info.text) + '</small></span></label>';
+            }).join('') + '</fieldset>' +
+            '<label class="maint-field">Nota / motivo <small>(obligatorio si hay vencidas)</small><input type="text" name="note" maxlength="200"></label>' +
+            '<div class="maint-form-error" hidden></div>' +
+            '<div class="maint-form-buttons">' +
+            '  <button type="button" class="maint-btn maint-btn-primary" data-action="ok">Programar</button>' +
+            '  <button type="button" class="maint-btn maint-btn-secondary" data-action="cancel">Cancelar</button>' +
+            '</div>');
+        var dateInput = overlay.querySelector('input[name="date"]');
+        var note = overlay.querySelector('input[name="note"]');
+        var errorBox = overlay.querySelector('.maint-form-error');
+        dateInput.value = Agenda.addDays(Agenda.todayIso(), 7);
+        overlay.querySelector('[data-action="cancel"]').addEventListener('click', function () { overlay.remove(); });
+        overlay.querySelector('[data-action="ok"]').addEventListener('click', function (evt) {
+            var picked = overlay.querySelectorAll('input[type="checkbox"]:checked');
+            var ids = Array.prototype.map.call(picked, function (b) { return b.value; });
+            var overdue = Array.prototype.some.call(picked, function (b) { return b.dataset.overdue === '1'; });
+            function fail(msg) { errorBox.textContent = msg; errorBox.hidden = false; }
+            if (!dateInput.value) return fail('Elegí la fecha.');
+            if (!ids.length) return fail('Marcá al menos una rutina.');
+            if (overdue && !note.value.trim()) return fail('Hay rutinas vencidas: escribí el motivo de la reprogramación.');
+            evt.target.disabled = true;
+            client.rpc('schedule_visit', { p_tag: tagId, p_activity_ids: ids, p_date: dateInput.value, p_note: note.value.trim() || null })
+                .then(function (r) {
+                    if (r.error) throw r.error;
+                    overlay.remove();
+                    onDone();
+                }).catch(function (err) {
+                    evt.target.disabled = false;
+                    fail('No se pudo programar: ' + err.message);
+                });
+        });
+    }
+
     function noPlanNotice(tagId) {
         return tagId + ' todavía no tiene plan de mantenimiento (sábana). Oficina se lo asigna en la GUI → ' +
             '📋 Plan de mantenimiento → Equipos.';
@@ -313,7 +412,7 @@
     // Pestaña "Programados" de la ficha (lectura pública). onCount(n) actualiza la pestaña.
     function renderUpcoming(container, client, tagId, openForm, onCount) {
         container.innerHTML = '<p class="maint-loading">Cargando programación…</p>';
-        Promise.all([fetchAgenda(client, tagId), fetchRole(client), fetchTagClass(client, tagId)]).then(function (res) {
+        Promise.all([fetchAgenda(client, tagId), fetchRole(client), fetchTagClass(client, tagId), fetchSkips(client, tagId)]).then(function (res) {
             var rows = Agenda.filterAgenda(res[0], 'todo', Agenda.todayIso());
             var isOficina = res[1] === 'oficina';
             var canRegister = !!res[1] && typeof openForm === 'function';
@@ -325,8 +424,21 @@
                     : noPlanNotice(tagId));
                 return;
             }
+            var skips = res[3] || {};
+            function reload() { renderUpcoming(container, client, tagId, openForm, onCount); }
+            if (isOficina && rows.some(function (r) { return r.activity_id; })) {
+                var visit = document.createElement('button');
+                visit.type = 'button';
+                visit.className = 'maint-btn maint-btn-secondary maint-btn-block';
+                visit.textContent = '📅 Programar visita (varias rutinas)';
+                visit.addEventListener('click', function () { openVisitModal(client, tagId, rows, reload); });
+                container.appendChild(visit);
+            }
             rows.forEach(function (row, i) {
                 var info = Agenda.statusInfo(row);
+                var sk = row.activity_id && skips[row.activity_id];
+                var skipText = sk && (!row.due_date || sk.skipped_on >= Agenda.addDays(row.due_date, -14))
+                    ? '🚫 No se pudo el ' + Agenda.formatDate(sk.skipped_on) + ': ' + sk.reason : '';
                 var item = foldable('maint-upcoming-item maint-level-' + info.level, i < OPEN_ITEMS);
                 var extra = Agenda.rescheduleText(row);
                 item.innerHTML =
@@ -336,6 +448,7 @@
                     '</summary>' +
                     '<div class="maint-fold-body">' +
                     (extra ? '<div class="maint-upcoming-extra">' + escapeHtml(extra) + '</div>' : '') +
+                    (skipText ? '<div class="maint-upcoming-extra maint-skip-text">' + escapeHtml(skipText) + '</div>' : '') +
                     '<div class="maint-upcoming-main"></div>' +
                     '</div>';
                 if (canRegister) {
@@ -345,6 +458,14 @@
                     done.textContent = '📝 Registrar';
                     done.addEventListener('click', function () { openForm(row.activity_id); });
                     item.querySelector('.maint-upcoming-main').appendChild(done);
+                    if (row.activity_id) {
+                        var skip = document.createElement('button');
+                        skip.type = 'button';
+                        skip.className = 'maint-btn maint-btn-secondary maint-btn-small';
+                        skip.textContent = '🚫 No se pudo';
+                        skip.addEventListener('click', function () { openSkipModal(client, row, reload); });
+                        item.querySelector('.maint-upcoming-main').appendChild(skip);
+                    }
                 }
                 if (isOficina && row.status !== 'sin_fecha') {
                     var btn = document.createElement('button');
@@ -1101,7 +1222,7 @@
 
         function selectedActivities() {
             return Array.prototype.map.call(
-                activitiesBox.querySelectorAll('input[type="checkbox"]:checked'),
+                activitiesBox.querySelectorAll('input[type="checkbox"]:checked:not(:disabled)'),
                 function (box) { return box.value; });
         }
 
@@ -1125,21 +1246,100 @@
         form.addEventListener('input', function () { saveDraft(tagId, currentFields()); });
         form.addEventListener('change', function () { syncNextField(); saveDraft(tagId, currentFields()); });
 
-        fetchTagActivities(getClient(), tagId).then(function (activities) {
-            if (!activities.length) return;
-            var restore = draft.activity_ids || [];
-            activities.forEach(function (a) {
-                var freq = [a.interval_hours ? a.interval_hours + ' h' : '', a.interval_weeks ? a.interval_weeks + ' sem' : '']
-                    .filter(Boolean).join(' / ');
-                var label = document.createElement('label');
-                label.className = 'maint-check';
-                label.innerHTML = '<input type="checkbox" value="' + escapeHtml(a.id) + '"> ' +
-                    '<span>' + escapeHtml(a.name) + ' <small>(cada ' + escapeHtml(freq) + ')</small></span>';
-                label.querySelector('input').checked = restore.indexOf(a.id) !== -1;
-                activitiesBox.appendChild(label);
+        // Rutinas agrupadas por urgencia (vencidas/próximas arriba) y las incluidas se marcan solas.
+        var includes = [];
+        var actNames = {};
+        function syncIncluded() {
+            var boxes = activitiesBox.querySelectorAll('input[type="checkbox"]');
+            Array.prototype.forEach.call(boxes, function (b) {
+                if (b.disabled) { b.disabled = false; b.checked = b.dataset.manual === '1'; }
             });
-            activitiesBox.hidden = false;
-            syncNextField();
+            var parents = Agenda.includedBy(selectedActivities(), includes);
+            Array.prototype.forEach.call(boxes, function (b) {
+                var note = b.parentNode.querySelector('.maint-included-note');
+                if (parents[b.value]) {
+                    b.checked = true;
+                    b.disabled = true;
+                    note.textContent = '✓ Incluida en «' + (actNames[parents[b.value]] || '') + '»';
+                    note.hidden = false;
+                } else {
+                    note.hidden = true;
+                }
+            });
+        }
+        function checkRow(a, item, restore) {
+            var freq = [a.interval_hours ? a.interval_hours + ' h' : '', a.interval_weeks ? a.interval_weeks + ' sem' : '']
+                .filter(Boolean).join(' / ');
+            var label = document.createElement('label');
+            label.className = 'maint-check maint-urg-' + item.urgency;
+            var urg = Agenda.urgencyText(item, Agenda.todayIso());
+            label.innerHTML = '<input type="checkbox" value="' + escapeHtml(a.id) + '"> ' +
+                '<span>' + escapeHtml(a.name) + ' <small>(cada ' + escapeHtml(freq) + ')</small>' +
+                (urg ? '<small class="maint-urg">' + escapeHtml(urg) + '</small>' : '') +
+                '<small class="maint-included-note" hidden></small></span>';
+            var box = label.querySelector('input');
+            box.checked = restore.indexOf(a.id) !== -1;
+            box.dataset.manual = box.checked ? '1' : '0';
+            box.addEventListener('change', function () {
+                box.dataset.manual = box.checked ? '1' : '0';
+                syncIncluded();
+            });
+            return label;
+        }
+        function groupTitle(text) {
+            var h = document.createElement('p');
+            h.className = 'maint-act-group';
+            h.textContent = text;
+            return h;
+        }
+
+        var cl = getClient();
+        Promise.all([
+            fetchTagActivities(cl, tagId),
+            fetchAgenda(cl, tagId).catch(function () { return []; })
+        ]).then(function (res) {
+            var activities = res[0];
+            if (!activities.length) return;
+            activities.forEach(function (a) { actNames[a.id] = a.name; });
+            return cl.from('maintenance_activity_includes').select('activity_id, included_id')
+                .in('activity_id', activities.map(function (a) { return a.id; }))
+                .then(function (r) {
+                    includes = (r && r.data) || [];
+                    var restore = draft.activity_ids || [];
+                    var g = Agenda.groupActivities(activities, res[1], Agenda.todayIso());
+                    if (g.due.length) {
+                        activitiesBox.appendChild(groupTitle('Para hacer ahora · aprovechá la visita'));
+                        g.due.forEach(function (it) { activitiesBox.appendChild(checkRow(it.activity, it, restore)); });
+                        var all = document.createElement('button');
+                        all.type = 'button';
+                        all.className = 'maint-btn maint-btn-secondary maint-btn-small';
+                        all.textContent = '✔ Marcar estas ' + g.due.length;
+                        all.addEventListener('click', function () {
+                            g.due.forEach(function (it) {
+                                var b = activitiesBox.querySelector('input[value="' + it.activity.id + '"]');
+                                if (b && !b.disabled) { b.checked = true; b.dataset.manual = '1'; }
+                            });
+                            syncIncluded(); syncNextField(); saveDraft(tagId, currentFields());
+                        });
+                        activitiesBox.appendChild(all);
+                    }
+                    if (g.never.length) {
+                        activitiesBox.appendChild(groupTitle('Nunca registradas'));
+                        g.never.forEach(function (it) { activitiesBox.appendChild(checkRow(it.activity, it, restore)); });
+                    }
+                    if (g.rest.length) {
+                        var fold = document.createElement('details');
+                        fold.className = 'maint-act-rest';
+                        fold.open = !g.due.length && !g.never.length ||
+                            g.rest.some(function (it) { return restore.indexOf(it.activity.id) !== -1; });
+                        fold.innerHTML = '<summary>Al día (' + g.rest.length + ')</summary>';
+                        g.rest.forEach(function (it) { fold.appendChild(checkRow(it.activity, it, restore)); });
+                        activitiesBox.appendChild(fold);
+                    }
+                    activitiesBox.hidden = false;
+                    syncIncluded();
+                    syncNextField();
+                });
         }).catch(function () { /* sin sábana: el formulario funciona como antes */ });
 
         var editor = createAttachmentsEditor(document.getElementById('maint-attachments-editor'), 0);
@@ -1214,7 +1414,7 @@
                     })
                     .then(function (uploadResults) {
                         var failed = uploadResults.filter(function (r) { return r !== 'ok'; });
-                        return nextDatesMessage(client, fields.activity_ids).then(function (nextMsg) {
+                        return nextDatesMessage(client, Agenda.expandIncludes(fields.activity_ids, includes)).then(function (nextMsg) {
                             var msg = failed.length > 0
                                 ? 'Registro guardado, pero ' + failed.length + ' adjunto(s) no se pudieron subir. Podés agregarlos después desde "Agregar comentario/adjunto".'
                                 : 'Registro guardado.';

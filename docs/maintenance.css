@@ -544,3 +544,22 @@
 .maint-upcoming-main:empty { display: none; }
 .maint-load-more { width: 100%; margin-top: 8px; }
 .maint-load-more[hidden] { display: none; }
+
+/* ── Registro: rutinas por urgencia, incluidas, no realizadas y visitas (2026-11-19) ── */
+.maint-act-group { margin: 10px 0 4px; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--text-muted, #57606a); }
+.maint-activities .maint-check { align-items: flex-start; padding: 8px 6px; border-radius: 8px; }
+.maint-check .maint-urg, .maint-check .maint-included-note { display: block; margin-top: 2px; font-size: 0.8rem; }
+.maint-urg-vencido { background: #fdecec; }
+.maint-urg-proximo { background: #fff4e5; }
+.maint-check .maint-included-note { color: #1a7f37; font-weight: 600; }
+.maint-check input:disabled + span { opacity: .85; }
+.maint-act-rest { margin-top: 8px; }
+.maint-act-rest > summary { cursor: pointer; padding: 10px 6px; min-height: 44px; font-weight: 600; color: var(--text-muted, #57606a); }
+.maint-activities > .maint-btn-small { margin: 4px 0 6px; }
+.maint-btn-block { display: block; width: 100%; margin-bottom: 10px; min-height: 44px; }
+.maint-skip-text { color: #9a6700; }
+.maint-modal-help { font-size: 0.85rem; color: var(--text-muted, #57606a); margin: 0 0 8px; }
+.maint-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.maint-chip { border: 1px solid var(--border, #d0d7de); background: var(--card-bg, #fff); color: inherit; border-radius: 999px; padding: 8px 12px; font-size: 0.85rem; min-height: 40px; cursor: pointer; }
+.maint-chip:active { background: #eef2f7; }
+.maint-modal fieldset { border: 0; padding: 0; margin: 8px 0; max-height: 45vh; overflow: auto; }

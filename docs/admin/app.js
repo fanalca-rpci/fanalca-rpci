@@ -295,7 +295,8 @@
             '<p class="adm-muted">' + esc(L.roleLabel(p.role)) + ' · ' + esc((window.__SITE__ || {}).plant || '') + '</p>' +
             '<div id="res-cards">' + skeleton(2) + '</div>' +
             '<a class="adm-btn is-primary is-block" id="res-registrar" href="#">📝 Registrar mantenimiento</a>' +
-            '<h2 class="adm-h2">Últimos registros</h2><div id="res-last">' + skeleton(3) + '</div>';
+            '<h2 class="adm-h2">Últimos registros</h2><div id="res-last">' + skeleton(3) + '</div>' +
+            '<div id="res-skips"></div>';
         box.querySelector('#res-registrar').addEventListener('click', function (e) { e.preventDefault(); pickTagToRegister(); });
 
         client.from('maintenance_schedule').select('tag_id,status').then(function (r) {
@@ -314,6 +315,22 @@
                 stat('is-green', Object.keys(affected).length, 'Equipos con vencidas') +
                 '</div>';
         });
+        var since = new Date(Date.now() - 30 * 86400000).toISOString();
+        client.from('maintenance_skips').select('tag_id,activity_id,skipped_on,reason,maintenance_activities(name)')
+            .gte('created_at', since).order('created_at', { ascending: false }).limit(20).then(function (r) {
+                var rows = (r.data || []);
+                if (!rows.length) return;
+                var boxS = box.querySelector('#res-skips');
+                boxS.innerHTML = '<h2 class="adm-h2">🚫 No realizadas · 30 días (' + rows.length + (rows.length === 20 ? '+' : '') + ')</h2>';
+                rows.forEach(function (x) {
+                    var a = el('<a class="adm-card adm-skip"><strong></strong><span></span><small></small></a>');
+                    a.href = fichaUrl(x.tag_id) + '#historial-view';
+                    a.querySelector('strong').textContent = x.tag_id + ' · ' + L.formatDate(x.skipped_on);
+                    a.querySelector('span').textContent = (x.maintenance_activities && x.maintenance_activities.name) || 'Rutina';
+                    a.querySelector('small').textContent = x.reason;
+                    boxS.appendChild(a);
+                });
+            });
         var q = recordsQuery().limit(5);
         if (p.role === 'tecnico') q = q.eq('created_by', state.session.user.id);
         q.then(function (r) {
@@ -556,12 +573,13 @@
             client.from('maintenance_activities').select('id,class_id,code,name,interval_weeks,interval_hours,active').order('name'),
             client.from('equipment_tags').select('tag_id,class_id,group_key,regime'),
             client.from('tag_resources').select('*'),
+            client.from('maintenance_activity_includes').select('activity_id,included_id'),
         ]).then(function (r) {
             var err = r[0].error || r[1].error || r[2].error;
             if (err) throw err;
             var res = {};
             (r[3].data || []).forEach(function (x) { res[x.tag_id] = x; });
-            return { classes: r[0].data, acts: r[1].data, tags: r[2].data, resources: res };
+            return { classes: r[0].data, acts: r[1].data, tags: r[2].data, resources: res, includes: (r[4] && r[4].data) || [] };
         });
     }
 
@@ -587,7 +605,8 @@
                     var row = el('<div class="adm-act' + (a.active ? '' : ' is-off') + '"><button type="button" class="adm-act-main"><span class="adm-act-name"></span><span class="adm-chip"></span></button>' +
                         '<label class="adm-switch" title="Activa"><input type="checkbox" aria-label="Activa"><span></span></label></div>');
                     row.querySelector('.adm-act-name').textContent = a.name;
-                    row.querySelector('.adm-chip').textContent = freqLabel(a.interval_weeks, a.interval_hours);
+                    var nInc = cat.includes.filter(function (i) { return i.activity_id === a.id; }).length;
+                    row.querySelector('.adm-chip').textContent = freqLabel(a.interval_weeks, a.interval_hours) + (nInc ? ' · incluye ' + nInc : '');
                     var sw = row.querySelector('input');
                     sw.checked = a.active;
                     sw.addEventListener('change', function () {
@@ -602,11 +621,11 @@
                             });
                         });
                     });
-                    row.querySelector('.adm-act-main').addEventListener('click', function () { editActivity(c, a, acts); });
+                    row.querySelector('.adm-act-main').addEventListener('click', function () { editActivity(c, a, acts, cat.includes); });
                     bodyEl.appendChild(row);
                 });
                 bodyEl.insertBefore(el('<p class="adm-muted adm-cls-hpd">Uso estimado: ' + esc(c.hours_per_day) + ' h/día</p>'), bodyEl.firstChild);
-                var add = button('＋ Rutina', 'is-ghost is-block', function () { editActivity(c, null, acts); });
+                var add = button('＋ Rutina', 'is-ghost is-block', function () { editActivity(c, null, acts, cat.includes); });
                 if (active.length >= 5) { add.disabled = true; add.textContent = 'Máximo 5 rutinas activas'; }
                 bodyEl.appendChild(add);
                 bodyEl.appendChild(button('Editar tipo de equipo', 'is-ghost is-block', function () { editClass(c); }));
@@ -623,12 +642,20 @@
             '<label class="adm-field" data-otra' + (!known && weeks ? '' : ' hidden') + '><span>Cada cuántas semanas</span><input type="number" name="weeks" min="1" max="520" inputmode="numeric" value="' + (weeks || '') + '"></label>';
     }
 
-    function editActivity(cls, act, acts) {
+    function editActivity(cls, act, acts, includes) {
+        includes = includes || [];
+        var others = acts.filter(function (a) { return a.active && (!act || a.id !== act.id); });
+        var had = act ? includes.filter(function (i) { return i.activity_id === act.id; }).map(function (i) { return i.included_id; }) : [];
         var form = el('<form class="adm-form" novalidate>' +
             '<label class="adm-field"><span>Nombre de la rutina</span><textarea name="name" rows="2" maxlength="140" required></textarea></label>' +
             freqField(act ? act.interval_weeks : 4) +
             '<label class="adm-field"><span>…o cada cuántas horas de trabajo (opcional)</span><input type="number" name="hours" min="1" step="1" inputmode="numeric" placeholder="Ej. 8000"></label>' +
             '<p class="adm-note">Si ponés horas, gana lo que llegue primero: la fecha o las horas del HMI.</p>' +
+            (others.length ? '<fieldset class="adm-field adm-includes"><span>Al hacerla también quedan hechas (opcional)</span>' +
+                others.map(function (o) {
+                    return '<label class="adm-check adm-act-check"><input type="checkbox" name="inc" value="' + o.id + '"' + (had.indexOf(o.id) !== -1 ? ' checked' : '') + '> <span>' + esc(o.name) + ' <small>' + esc(freqLabel(o.interval_weeks, o.interval_hours)) + '</small></span></label>';
+                }).join('') +
+                '<p class="adm-note">Ej.: "Sacar y lavar la parrilla" incluye "Verificar burbujeo". Al registrar la mayor, las incluidas se marcan solas y su fecha también se reinicia.</p></fieldset>' : '') +
             '<p class="adm-error" hidden></p></form>');
         if (act && act.interval_hours) form.hours.value = act.interval_hours;
         form.name.value = act ? act.name : '';
@@ -651,9 +678,22 @@
                 var n = 2;
                 var base = code;
                 while (used.indexOf(code) !== -1) code = base.slice(0, 21) + '-' + n++;
-                req = client.from('maintenance_activities').insert({ class_id: cls.id, code: code, name: name, interval_weeks: weeks, interval_hours: hours });
+                req = client.from('maintenance_activities').insert({ class_id: cls.id, code: code, name: name, interval_weeks: weeks, interval_hours: hours }).select('id');
             }
+            var want = Array.prototype.map.call(form.querySelectorAll('input[name="inc"]:checked'), function (b) { return b.value; });
             req.then(function (r) {
+                if (r.error) return r;
+                var id = act ? act.id : r.data[0].id;
+                var add = want.filter(function (x) { return had.indexOf(x) === -1; });
+                var del = had.filter(function (x) { return want.indexOf(x) === -1; });
+                var ops = [];
+                if (add.length) ops.push(client.from('maintenance_activity_includes').insert(add.map(function (x) { return { activity_id: id, included_id: x }; })));
+                if (del.length) ops.push(client.from('maintenance_activity_includes').delete().eq('activity_id', id).in('included_id', del));
+                return Promise.all(ops).then(function (rs) {
+                    var bad = rs.filter(function (x) { return x.error; })[0];
+                    return bad || r;
+                });
+            }).then(function (r) {
                 busy(save, false);
                 if (r.error) { err.textContent = dbError(r.error); err.hidden = false; return; }
                 s.close();
