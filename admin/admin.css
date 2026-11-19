@@ -218,3 +218,14 @@ button.adm-card:active, a.adm-card:active { background: #f6f8fa; }
 .adm-act-check small { display: block; color: var(--text-muted); font-size: 13px; }
 .adm-cls-hpd { margin: 4px 0 6px; font-size: 13.5px; }
 button.adm-menu-item { font: inherit; }
+
+/* 🌐 Sitio */
+.adm-status { border-radius: 12px; padding: 12px 14px; font-weight: 600; font-size: 14.5px; margin: 0 0 12px; }
+.adm-status.is-ok { background: var(--adm-green-bg); color: var(--adm-green); }
+.adm-status.is-wait { background: var(--adm-yellow-bg); color: #5c4400; }
+.adm-color { display: flex; gap: 10px; align-items: center; }
+.adm-color input[type=color] { width: 64px; min-width: 64px; height: 48px; padding: 4px; border-radius: 12px; border: 1px solid var(--border); background: #fff; }
+.adm-color-prev { flex: 1; min-height: 48px; display: grid; place-items: center; border-radius: 12px; font-weight: 700; font-size: 14px; }
+.adm-upload-cur { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.adm-file { cursor: pointer; }
+.adm-file.is-busy { opacity: .6; pointer-events: none; }

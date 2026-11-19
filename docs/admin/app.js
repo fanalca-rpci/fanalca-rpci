@@ -237,7 +237,7 @@
     function route() {
         if (!state.profile) return;
         var res = L.resolve(location.hash, state.profile.role);
-        var navId = res.id === 'usuarios' || (res.id === 'cuenta' && state.profile.role === 'oficina') ? 'mas' : res.id;
+        var navId = res.id === 'usuarios' || res.id === 'sitio' || (res.id === 'cuenta' && state.profile.role === 'oficina') ? 'mas' : res.id;
         Array.prototype.forEach.call(nav.querySelectorAll('a'), function (a) {
             a.classList.toggle('is-active', a.dataset.id === navId);
             if (a.dataset.id === navId) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
@@ -518,10 +518,13 @@
             client.from('equipment_classes').select('id,code,name,hours_per_day').order('name'),
             client.from('maintenance_activities').select('id,class_id,code,name,interval_weeks,interval_hours,active').order('name'),
             client.from('equipment_tags').select('tag_id,class_id,group_key,regime'),
+            client.from('tag_resources').select('*'),
         ]).then(function (r) {
             var err = r[0].error || r[1].error || r[2].error;
             if (err) throw err;
-            return { classes: r[0].data, acts: r[1].data, tags: r[2].data };
+            var res = {};
+            (r[3].data || []).forEach(function (x) { res[x.tag_id] = x; });
+            return { classes: r[0].data, acts: r[1].data, tags: r[2].data, resources: res };
         });
     }
 
@@ -702,7 +705,7 @@
                     }
                     if (!cur) card.querySelector('.adm-chip').classList.add('is-warn');
                     card.querySelector('.adm-rec-desc').textContent = t.servicio;
-                    card.addEventListener('click', function () { assignClass(t, cur, cat.classes, pair, byTag[t.tag]); });
+                    card.addEventListener('click', function () { assignClass(t, cur, cat.classes, pair, byTag[t.tag], cat.resources[t.tag]); });
                     list.appendChild(card);
                 });
             }
@@ -711,23 +714,39 @@
         }).catch(function (e) { box.querySelector('#eq-list').innerHTML = '<p class="adm-alert">' + esc(dbError(e)) + '</p>'; });
     }
 
-    function assignClass(t, cur, classes, pair, row) {
+    function assignClass(t, cur, classes, pair, row, links) {
         var form = el('<form class="adm-form" novalidate><p class="adm-muted"></p><label class="adm-field"><span>Tipo de equipo</span><select name="cls"><option value="">— Elegí —</option>' +
             classes.map(function (c) { return '<option value="' + c.id + '">' + esc(c.name) + '</option>'; }).join('') + '</select></label>' +
             (pair ? '<label class="adm-field"><span>Papel dentro del par con ' + esc(pair) + '</span><select name="reg">' +
                 Object.keys(REGIMES).map(function (k) { return '<option value="' + k + '">' + esc(REGIMES[k]) + '</option>'; }).join('') +
                 '</select></label>' : '') +
+            '<h3 class="adm-h3">Enlaces de documentos</h3>' +
+            '<label class="adm-field"><span>Especificaciones</span><input type="url" name="l_spec" inputmode="url" placeholder="https://…"></label>' +
+            '<label class="adm-field"><span>Manual</span><input type="url" name="l_man" inputmode="url" placeholder="https://…"></label>' +
+            '<label class="adm-field"><span>Mantenimiento</span><input type="url" name="l_mto" inputmode="url" placeholder="https://…"></label>' +
+            '<p class="adm-muted">Los botones aparecen en la ficha en unos 15 minutos.</p>' +
             (cur ? '<p class="adm-note">Las rutinas de los registros anteriores se conservan; las fechas se calculan con las rutinas del tipo nuevo.</p>' : '') +
             '<p class="adm-error" hidden></p></form>');
         form.querySelector('.adm-muted').textContent = t.servicio;
         if (cur) form.cls.value = cur.id;
         if (pair) form.reg.value = (row && row.regime) || 'normal';
+        links = links || {};
+        form.l_spec.value = links.specifications || '';
+        form.l_man.value = links.handbook || '';
+        form.l_mto.value = links.maintenance || '';
         var save = button('Guardar', 'is-primary', function () {
             var err = form.querySelector('.adm-error');
             if (!form.cls.value) { err.textContent = 'Elegí un tipo de equipo.'; err.hidden = false; return; }
+            var urls = { specifications: form.l_spec.value.trim() || null, handbook: form.l_man.value.trim() || null, maintenance: form.l_mto.value.trim() || null };
+            var badUrl = Object.keys(urls).filter(function (k) { return urls[k] && !/^https?:\/\//i.test(urls[k]); })[0];
+            if (badUrl) { err.textContent = 'Los enlaces deben empezar con https://'; err.hidden = false; return; }
+            var linksChanged = ['specifications', 'handbook', 'maintenance'].some(function (k) { return (links[k] || null) !== urls[k]; });
             busy(save, true);
             var group = pair ? t.tag.replace(/[AB]$/, '') : null;
             client.from('equipment_tags').upsert({ tag_id: t.tag, class_id: form.cls.value, group_key: group, regime: pair ? form.reg.value : 'normal' }).then(function (r) {
+                if (r.error || !linksChanged) return r;
+                return client.from('tag_resources').upsert(Object.assign({ tag_id: t.tag }, urls));
+            }).then(function (r) {
                 busy(save, false);
                 if (r.error) { err.textContent = dbError(r.error); err.hidden = false; return; }
                 s.close();
@@ -742,6 +761,7 @@
     function screenMas(box) {
         box.innerHTML = '<h1 class="adm-h1">Más</h1><div class="adm-menu">' +
             '<a class="adm-card adm-menu-item" href="#usuarios"><span>👥</span><strong>Usuarios</strong><em>›</em></a>' +
+            '<a class="adm-card adm-menu-item" href="#sitio"><span>🌐</span><strong>Sitio: títulos, color, logo y fichas</strong><em>›</em></a>' +
             '<a class="adm-card adm-menu-item" href="#cuenta"><span>🔑</span><strong>Mi cuenta</strong><em>›</em></a>' +
             '<a class="adm-card adm-menu-item" href="../mantenimientos.html"><span>🛠</span><strong>Ver el sitio de mantenimientos</strong><em>›</em></a>' +
             '</div><h2 class="adm-h2">Descargar (Excel)</h2><div class="adm-menu">' +
@@ -752,6 +772,115 @@
         box.querySelector('#dl-rutinas').addEventListener('click', function () { exportRutinas(this); });
         box.querySelector('#dl-equipos').addEventListener('click', function () { exportEquipos(this); });
         box.querySelector('#dl-registros').addEventListener('click', function () { exportRegistros(this); });
+    }
+
+    // ── 🌐 Sitio (títulos, color, logo, Excel de fichas) ─────────────────
+    function publishStatus(box, settings) {
+        var st = box.querySelector('#site-status');
+        fetch('../migration_metadata.json?t=' + Date.now()).then(function (r) { return r.json(); }).then(function (meta) {
+            var ok = meta.source_version && settings.version && Date.parse(meta.source_version) === Date.parse(settings.version);
+            st.className = 'adm-status ' + (ok ? 'is-ok' : 'is-wait');
+            st.textContent = ok ? '✅ Publicado: el sitio tiene los últimos cambios.'
+                : '⏳ En cola: se publica en unos 15 minutos (máx. 20).';
+        }).catch(function () { st.textContent = ''; });
+    }
+
+    function screenSitio(box) {
+        box.innerHTML = '<a class="adm-back" href="#mas">‹ Más</a><h1 class="adm-h1">Sitio</h1>' +
+            '<p class="adm-status" id="site-status"></p><div id="site-body">' + skeleton(3) + '</div>';
+        client.from('site_settings').select('*').eq('id', 1).maybeSingle().then(function (r) {
+            var body = box.querySelector('#site-body');
+            if (r.error || !r.data) { body.innerHTML = '<p class="adm-alert">' + esc(r.error ? dbError(r.error) : 'Falta la configuración inicial del sitio.') + '</p>'; return; }
+            var st = r.data;
+            publishStatus(box, st);
+            body.innerHTML = '';
+            var form = el('<form class="adm-form adm-card" novalidate><h2 class="adm-h2">Textos y color</h2>' +
+                '<label class="adm-field"><span>Título del sitio</span><input name="t1" maxlength="80"></label>' +
+                '<label class="adm-field"><span>Título del banner (largo)</span><input name="t2" maxlength="100"></label>' +
+                '<label class="adm-field"><span>Título del banner (corto, celular)</span><input name="t3" maxlength="30"></label>' +
+                '<label class="adm-field"><span>Enlace del logo del cliente</span><input type="url" name="href" inputmode="url" placeholder="https://…"></label>' +
+                '<label class="adm-field"><span>Color principal</span><span class="adm-color"><input type="color" name="color"><span class="adm-color-prev">Así se ve el banner</span></span></label>' +
+                '<p class="adm-error" hidden></p><button type="submit" class="adm-btn is-primary is-block">Guardar y publicar</button></form>');
+            form.t1.value = st.site_title; form.t2.value = st.banner_title_full; form.t3.value = st.banner_title_short;
+            form.href.value = st.logo_href || '';
+            form.color.value = st.accent || '#081c49';
+            var prev = form.querySelector('.adm-color-prev');
+            function paint() { prev.style.background = form.color.value; prev.style.color = parseInt(form.color.value.slice(1), 16) > 0x999999 ? '#1f2328' : '#fff'; }
+            form.color.addEventListener('input', paint); paint();
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                var err = form.querySelector('.adm-error');
+                if (!form.t1.value.trim() || !form.t2.value.trim() || !form.t3.value.trim()) { err.textContent = 'Los tres títulos son obligatorios.'; err.hidden = false; return; }
+                if (form.href.value && !/^https?:\/\//i.test(form.href.value.trim())) { err.textContent = 'El enlace debe empezar con https://'; err.hidden = false; return; }
+                var btn = form.querySelector('[type=submit]');
+                busy(btn, true);
+                client.from('site_settings').update({
+                    site_title: form.t1.value.trim(), banner_title_full: form.t2.value.trim(), banner_title_short: form.t3.value.trim(),
+                    logo_href: form.href.value.trim() || null, accent: form.color.value,
+                }).eq('id', 1).select().single().then(function (u) {
+                    busy(btn, false);
+                    if (u.error) { err.textContent = dbError(u.error); err.hidden = false; return; }
+                    err.hidden = true;
+                    toast('Guardado. Se publica en unos 15 minutos.');
+                    publishStatus(box, u.data);
+                });
+            });
+            body.appendChild(form);
+            body.appendChild(uploadCard('Logo del cliente', 'Imagen PNG o JPG, idealmente con fondo transparente y texto claro (va sobre el banner).',
+                'image/png,image/jpeg,image/webp,image/svg+xml', 'logo', st, box));
+            body.appendChild(uploadCard('Excel de fichas técnicas', 'El mismo Excel de donde salen los PDF (.xlsx o .xlsm). Reemplaza el contenido de todas las fichas.',
+                '.xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12', 'fichas', st, box));
+        });
+    }
+
+    function uploadCard(title, help, accept, kind, st, box) {
+        var current = kind === 'logo' ? st.logo_file : st.fichas_file;
+        var card = el('<div class="adm-card adm-upload"><h2 class="adm-h2"></h2><p class="adm-muted"></p>' +
+            '<p class="adm-upload-cur"></p><label class="adm-btn is-ghost is-block adm-file"><input type="file" hidden>Elegir archivo</label>' +
+            '<p class="adm-error" hidden></p></div>');
+        card.querySelector('h2').textContent = title;
+        card.querySelector('.adm-muted').textContent = help;
+        card.querySelector('.adm-upload-cur').textContent = current ? 'Actual: ' + current.split('/').pop().replace(/^\d+-/, '') : 'Todavía no se ha subido.';
+        var input = card.querySelector('input');
+        input.accept = accept;
+        input.addEventListener('change', function () {
+            var file = input.files[0];
+            if (!file) return;
+            var err = card.querySelector('.adm-error');
+            if (file.size > 25 * 1024 * 1024) { err.textContent = 'El archivo pesa más de 25 MB.'; err.hidden = false; return; }
+            var go = kind === 'fichas'
+                ? confirmSheet('Reemplazar las fichas', 'Las fichas del sitio se van a regenerar con "' + file.name + '". Los mantenimientos registrados no se tocan.', 'Subir y publicar')
+                : Promise.resolve(true);
+            go.then(function (ok) {
+                if (!ok) { input.value = ''; return; }
+                var label = card.querySelector('.adm-file');
+                label.classList.add('is-busy');
+                label.lastChild.textContent = 'Subiendo…';
+                var safe = file.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9._-]+/g, '_');
+                var path = kind + '/' + Date.now() + '-' + safe;
+                client.storage.from('site-sources').upload(path, file, { upsert: true, contentType: file.type || 'application/octet-stream' }).then(function (up) {
+                    if (up.error) throw up.error;
+                    var patch = {};
+                    patch[kind + '_file'] = path;
+                    patch[kind + '_version'] = new Date().toISOString();
+                    return client.from('site_settings').update(patch).eq('id', 1).select().single();
+                }).then(function (u) {
+                    if (u.error) throw u.error;
+                    err.hidden = true;
+                    card.querySelector('.adm-upload-cur').textContent = 'Actual: ' + file.name;
+                    toast('Subido. Se publica en unos 15 minutos.');
+                    publishStatus(box, u.data);
+                }).catch(function (e) {
+                    err.textContent = /mime|type/i.test(e.message || '') ? 'Ese tipo de archivo no se acepta.' : dbError(e);
+                    err.hidden = false;
+                }).then(function () {
+                    label.classList.remove('is-busy');
+                    label.lastChild.textContent = 'Elegir archivo';
+                    input.value = '';
+                });
+            });
+        });
+        return card;
     }
 
     // ── Descargas CSV (abren en Excel: BOM + punto y coma) ──────────────────
@@ -1003,7 +1132,7 @@
 
     var SCREENS = {
         resumen: screenResumen, registros: screenRegistros, rutinas: screenRutinas, equipos: screenEquipos,
-        mas: screenMas, usuarios: screenUsuarios, cuenta: screenCuenta,
+        mas: screenMas, usuarios: screenUsuarios, cuenta: screenCuenta, sitio: screenSitio,
     };
 
     // ── arranque ──────────────────────────────────────────────────────────

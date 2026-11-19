@@ -12,6 +12,7 @@ Uso:
 
 import html
 import json
+import os
 import shutil
 import sys
 from dataclasses import dataclass, field
@@ -2135,6 +2136,10 @@ def generate_site(items: list[Item], output_dir: Path, config: Optional[dict] = 
     metadata = {
         "source": "plantilla_sitio.xlsx",
         "generated_at": datetime.now().isoformat(),
+        # Versión de lo configurado en la administración web (lo pone site_sync.py)
+        "source_version": os.environ.get("SITE_SOURCE_VERSION", ""),
+        "fichas_version": os.environ.get("SITE_FICHAS_VERSION", ""),
+        "logo_version": os.environ.get("SITE_LOGO_VERSION", ""),
         "site_title": SITE_TITLE,
         "site_url": SITE_URL,
         "total_tags": total_items,

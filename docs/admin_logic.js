@@ -13,6 +13,7 @@
         mas:       { id: 'mas',       icon: '☰', label: 'Más' },
         cuenta:    { id: 'cuenta',    icon: '🔑', label: 'Mi cuenta' },
         usuarios:  { id: 'usuarios',  icon: '👥', label: 'Usuarios' },
+        sitio:     { id: 'sitio',     icon: '🌐', label: 'Sitio' },
     };
     var NAV = {
         tecnico: ['resumen', 'registros', 'cuenta'],
@@ -21,7 +22,7 @@
     // Pantallas alcanzables por perfil (incluye las que viven dentro de "Más").
     var ALLOWED = {
         tecnico: ['resumen', 'registros', 'cuenta'],
-        oficina: ['resumen', 'registros', 'rutinas', 'equipos', 'mas', 'usuarios', 'cuenta'],
+        oficina: ['resumen', 'registros', 'rutinas', 'equipos', 'mas', 'usuarios', 'cuenta', 'sitio'],
     };
 
     function fold(s) {
