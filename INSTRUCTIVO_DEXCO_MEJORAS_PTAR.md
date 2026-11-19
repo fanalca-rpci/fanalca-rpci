@@ -487,3 +487,4 @@ GitHub **desactiva los Actions programados si el repo pasa 60 días sin commits*
 | Fondo del sitio ilegible con color oscuro | `derive_palette` aclara +0.45 desde un color muy oscuro | Tema a mano (Parte 6.2) |
 | Commits firmados con el correo personal | `user.email` global | `git config user.email` local (Parte 3.1) |
 | Documentos del cliente subidos sin querer | `git add -A` sin revisar | Mirar `git status` completo antes de cada commit |
+| Las fichas pierden los botones de documentos tras regenerar en local | El Action no guardaba `TAG_RESOURCES.xlsx` (un `git add` con varios archivos fallaba si faltaba uno) | Arreglado en `site-sync.yml` (agrega archivo por archivo). Antes de regenerar en local: `git pull`; si falta `TAG_RESOURCES.xlsx`, rearmarlo desde la base con `site_sync.write_resources_xlsx(site_sync.merge_resources({}, filas_de_tag_resources), …)` |
