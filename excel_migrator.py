@@ -50,7 +50,7 @@ DEFAULT_THEME = {
 
 # Recursos por TAG (TAG_RESOURCES.xlsx) — pares (columna, label visible en botón)
 TAG_RESOURCES_COLUMNS = [
-    ("Specifications", "Especificaciones"),
+    ("Specifications", "Ficha técnica (PDF)"),
     ("Handbook_Manual", "Manual"),
     ("Maintenance", "Mantenimiento"),
 ]

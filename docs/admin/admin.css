@@ -270,3 +270,4 @@ button.adm-menu-item { font: inherit; }
     .qr-card { width: var(--qr-w); height: var(--qr-h); break-inside: avoid; page-break-inside: avoid; }
     .qr-card svg { width: var(--qr-w); height: var(--qr-h); }
 }
+.adm-pdf-btn { min-height: 40px; font-size: 14px; margin: -6px 0 14px; padding: 6px 12px; }

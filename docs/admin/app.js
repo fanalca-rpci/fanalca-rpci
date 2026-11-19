@@ -763,7 +763,7 @@
                 Object.keys(REGIMES).map(function (k) { return '<option value="' + k + '">' + esc(REGIMES[k]) + '</option>'; }).join('') +
                 '</select></label>' : '') +
             '<h3 class="adm-h3">Enlaces de documentos</h3>' +
-            '<label class="adm-field"><span>Especificaciones</span><input type="url" name="l_spec" inputmode="url" placeholder="https://…"></label>' +
+            '<label class="adm-field"><span>Ficha técnica / especificaciones (PDF)</span><input type="url" name="l_spec" inputmode="url" placeholder="https://…"></label>' +
             '<label class="adm-field"><span>Manual</span><input type="url" name="l_man" inputmode="url" placeholder="https://…"></label>' +
             '<label class="adm-field"><span>Mantenimiento</span><input type="url" name="l_mto" inputmode="url" placeholder="https://…"></label>' +
             '<p class="adm-muted">Los botones aparecen en la ficha en unos 15 minutos.</p>' +
@@ -777,6 +777,24 @@
         form.l_spec.value = links.specifications || '';
         form.l_man.value = links.handbook || '';
         form.l_mto.value = links.maintenance || '';
+        ['l_spec', 'l_man', 'l_mto'].forEach(function (name) {
+            var input = form[name];
+            var up = el('<label class="adm-btn is-ghost adm-file adm-pdf-btn"><input type="file" accept="application/pdf" hidden>📎 Subir PDF</label>');
+            input.parentNode.insertAdjacentElement('afterend', up);
+            up.querySelector('input').addEventListener('change', function () {
+                var f = this.files[0];
+                if (!f) return;
+                if (f.size > 25 * 1024 * 1024) return toast('El PDF pesa más de 25 MB.', 'error');
+                up.classList.add('is-busy');
+                var safe = f.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9._-]+/g, '_');
+                var path = 'docs/' + t.tag + '/' + Date.now() + '-' + safe;
+                client.storage.from('site-sources').upload(path, f, { contentType: 'application/pdf' }).then(function (r) {
+                    if (r.error) throw r.error;
+                    input.value = cfg.url + '/storage/v1/object/public/site-sources/' + path;
+                    toast('PDF subido. Tocá Guardar para dejarlo en la ficha.');
+                }).catch(function (e) { toast(dbError(e), 'error'); }).then(function () { up.classList.remove('is-busy'); up.querySelector('input').value = ''; });
+            });
+        });
         var save = button('Guardar', 'is-primary', function () {
             var err = form.querySelector('.adm-error');
             if (!form.cls.value) { err.textContent = 'Elegí un tipo de equipo.'; err.hidden = false; return; }
