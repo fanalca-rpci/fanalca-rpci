@@ -48,10 +48,17 @@ jobs:
             sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
             sudo apt-get install -y -qq postgresql-client-17 >/dev/null
             PGD=/usr/lib/postgresql/17/bin/pg_dump
-            $PGD "$DB" -Fc --no-owner --no-privileges -n public -f out/public.dump
-            $PGD "$DB" -Fc --no-owner --no-privileges --data-only -t auth.users -t auth.identities -f out/auth_usuarios.dump
-            $PGD "$DB" -Fc --no-owner --no-privileges --data-only -t storage.buckets -t storage.objects -f out/storage_metadatos.dump
-            echo "✅ Volcado PostgreSQL listo"
+            # Si el volcado falla (contraseña, red), el respaldo JSON se publica igual
+            # y el workflow termina en rojo al final para que llegue el correo.
+            if $PGD "$DB" -Fc --no-owner --no-privileges -n public -f out/public.dump \
+               && $PGD "$DB" -Fc --no-owner --no-privileges --data-only -t auth.users -t auth.identities -f out/auth_usuarios.dump \
+               && $PGD "$DB" -Fc --no-owner --no-privileges --data-only -t storage.buckets -t storage.objects -f out/storage_metadatos.dump; then
+              echo "✅ Volcado PostgreSQL listo"
+            else
+              rm -f out/*.dump
+              echo "PGDUMP_FAILED=1" >> "$GITHUB_ENV"
+              echo "::warning::Falló el volcado PostgreSQL (revisar SUPABASE_DB_URL). Se publica solo el respaldo JSON."
+            fi
           fi
 
       - name: Comprimir la base
@@ -81,3 +88,9 @@ jobs:
               gh release delete "$t" --yes --cleanup-tag && echo "🗑️ $t"
             done
           echo "✅ Respaldo $D listo."
+
+      - name: Avisar si el volcado PostgreSQL falló
+        if: env.PGDUMP_FAILED == '1'
+        run: |
+          echo "❌ El respaldo JSON quedó publicado, pero el volcado PostgreSQL falló. Revisar el secreto SUPABASE_DB_URL."
+          exit 1
