@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Una persona `oficina` entra desde el celular a `admin.html`, crea un usuario con el perfil elegido, le restablece la contraseña o lo desactiva; cualquier usuario cambia su propia contraseña; el calendario queda oculto en el sitio.
+**Goal:** Una persona `oficina` entra desde el celular a `admin.html`, crea un usuario con el perfil elegido, le restablece la contraseña o lo desactiva; cualquier usuario cambia su propia contraseña.
 
 **Architecture:** `admin.html` la genera `excel_migrator.py` como `mantenimientos.html`; la lógica vive en `admin.js` (DOM) + `admin_logic.js` (pura, testeada con node). Todo lo que toca Auth pasa por la Edge Function `admin-users` (Deno, en Supabase), que tiene la `service_role` como variable del servidor y verifica que quien llama sea `oficina` activo. Una migración agrega `profiles.active`, endurece `is_member()/is_oficina()` y crea `user_admin_log`.
 
@@ -182,17 +182,9 @@ Comportamiento (copiar textos tal cual):
 
 ---
 
-### Task 6: Ocultar el calendario en el sitio (`features.calendario`)
+### Task 6: (eliminada 2026-11-18)
 
-**Files:**
-- Modify: `excel_migrator.py` (lee `config.get("features", {}).get("calendario", False)`; `page_skeleton` inyecta `<script>window.__FEATURES__ = {"calendario": false};</script>` antes de los scripts; `render_home` omite el `<a id="home-overdue">` si es `False`), `maintenance.js` (si `!window.__FEATURES__.calendario`: `buildTabs` solo con **Realizados**, sin `renderUpcoming`/`renderPlan` ni aviso "🔴 N vencidos"), `maintenance_feed.js` (sin selector Realizados|Programados; ignora `?vista=programados`), `site_config.json` (`"features": {"calendario": false}`)
-- Test: `tests/test_generator_admin.py` (agregar), `tests/test_generator_feed.py` (ajustar si alguna aserción depende del selector)
-
-- [ ] **Step 1: Tests que fallan:** `test_features_calendario_apagado_por_defecto` (`window.__FEATURES__ = {"calendario": false}` en `index.html` y en una ficha; `id="home-overdue"` ausente en `index.html`) y `test_features_calendario_encendido` (generar con config que tenga `"calendario": true` → `home-overdue` presente).
-- [ ] **Step 2:** correr → FAIL.
-- [ ] **Step 3:** implementar.
-- [ ] **Step 4:** pytest + node → PASS; captura a 390 px de una ficha con sesión: solo la pestaña Realizados y el botón de registrar.
-- [ ] **Step 5: Commit** `git commit -m "feat: interruptor features.calendario (apagado mientras se diseña el calendario)"`.
+Ya no se oculta el calendario: lo reemplaza el plan [2026-11-18-proximos-y-busqueda.md](2026-11-18-proximos-y-busqueda.md).
 
 ---
 

@@ -106,9 +106,49 @@ Al terminar cada fase se publica en FANALCA y se actualiza el instructivo de DEX
 - Celular siempre. Registros fáciles de encontrar por TAG. Los pares A/B tienen historial y calendario separados.
 - El calendario queda para después.
 
+## Próximo mantenimiento por rutina (agregado 2026-11-18, aprobado con maqueta)
+
+Reemplaza la idea de ocultar el calendario. No hay programación manual ni reprogramar: solo **fecha tentativa calculada**.
+
+- **Próxima fecha** = última vez que se hizo **esa rutina en ese TAG** + su frecuencia (MP-02, en semanas).
+- **Estados** (calculados en una sola función JS pura, compartida por ficha, inicio, listas y feed):
+  - `nunca` 🟠 "Nunca realizada": sin fecha inventada; no cuenta como vencida.
+  - `al_dia` ✅ "Próxima: 18 may 2027 · en 6 meses".
+  - `proxima` 🟡 "Vence en N días": ventana = **7 días** si la frecuencia es ≤ 4 semanas, **14 días** si es mayor.
+  - `vencida` 🔴 "Vencida hace N días".
+  - `critica` 🔴 fuerte: atraso **mayor a la mitad de la frecuencia** (mensual > 14 días; semestral > 91 días).
+- **Ficha (donde cae el QR):** una sola línea bajo el título con el peor estado y la fecha más cercana ("🔴 2 vencidas · Próx. 22 nov ›"), que no pase de una línea a 360 px. Al tocarla, **vista emergente desde abajo** con las rutinas ordenadas por urgencia (crítica → vencida → nunca → próxima → al día). "Al día (n)" va plegado con chevron. Cada rutina muestra "Última: 8 oct" (tocable: abre ese registro) y, con sesión, "📝 Registrar" con la rutina ya marcada.
+- **Formulario de registro:** cada casilla muestra el estado de su rutina ("vencida hace 12 d"). Aviso suave si se guarda sin marcar ninguna: "Sin rutinas marcadas, las fechas no avanzan".
+- **Inicio:** una sola franja "🔴 N equipos con mantenimientos vencidos ›" que lleva a la lista por equipo.
+- **Listas de equipos (categoría y menú):** un punto de color por TAG con su peor estado.
+- **Pares A/B:** cada TAG tiene sus fechas propias.
+
+## Historial a escala: búsqueda y filtros (agregado 2026-11-18)
+
+Requisito del usuario: **pensarlo para 1 millón de mantenimientos**, siempre en celular.
+
+**Base de datos**
+- **Última vez por TAG × rutina en una tabla** (`maintenance_last_done`) mantenida por triggers al crear, editar o borrar registros y rutinas marcadas. La fecha tentativa se calcula sobre 15 TAGs × 5 rutinas, no sobre el millón de registros.
+- **Índices** por `(tag_id, performed_at desc, created_at desc, id desc)` y `(performed_at desc, created_at desc, id desc)`; rutinas marcadas por `(activity_id, record_id)`; búsqueda de texto en la descripción con `pg_trgm`.
+- **Paginación por cursor** (seguir desde el último registro visto), nunca "saltar N". Sin conteos exactos; se muestra "20 resultados · Cargar más".
+- **Una función de búsqueda** (`search_maintenance_records`) con todos los filtros, lectura pública como el resto del historial.
+
+**Filtros** (combinables)
+- **TAG** (uno o varios, o una categoría).
+- **Rutina**: "todas las limpiezas de parrilla del 400-MX-01". Las opciones dependen del tipo de equipo del TAG elegido.
+- **Fecha**: Últimos 30 días · 3 meses · 12 meses · Todo · Personalizado (desde/hasta).
+- **Texto** en la descripción ("rodamiento", "fuga").
+- **Autor**.
+- **Con fotos o audio**.
+
+**Pantalla (celular)**
+- Arriba solo el buscador y un botón **"Filtros (n)"**. Los filtros se eligen en una **vista emergente desde abajo**, y los activos se ven como **chips con ✕** bajo el buscador.
+- Resultados **agrupados por mes** ("Noviembre 2026") para ubicarse rápido. Tarjetas compactas: fecha, TAG, rutinas, autor, 📷 n. El detalle y las fotos se abren con chevron, y las fotos se piden solo al abrir.
+- Los filtros quedan en la URL (`?tag=400-MX-01&rutina=…&desde=…`): botón Atrás, compartir el enlace por WhatsApp y abrir un registro puntual (`mantenimientos.html?registro=<id>`).
+- **En la ficha**, la pestaña Realizados trae los mismos filtros, con el TAG ya fijo.
+
 ## Decisiones mías (revisar)
 
-- **Ocultar por ahora lo del calendario en el sitio** (pestañas "Programados" y "Plan" de la ficha, franja de vencidos del inicio y vista "Programados" de `mantenimientos.html`), con un interruptor `features.calendario: false` en `site_config.json`. Hoy muestran las rutinas como "sin registro" y pueden confundir a los técnicos. Se vuelven a encender con el calendario.
 - Contraseña temporal generada por la función y compartible por WhatsApp, en lugar de que la oficina la invente.
 - Desactivar en vez de borrar usuarios.
 - `gui.py` se conserva para generar y publicar el sitio. Sus ventanas de Mantenimientos y Plan quedan como respaldo, sin nuevas funciones.
