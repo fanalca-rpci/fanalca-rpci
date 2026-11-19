@@ -1,0 +1,76 @@
+# Respaldo semanal de Supabase → Releases de ESTE repo privado (no del sitio público).
+#   - Base de datos (public + usuarios de auth + metadatos de storage), comprimida.
+#     Se conservan las últimas 12 (≈3 meses); las viejas se borran (sí libera espacio).
+#   - Archivos (fotos, audios, PDF): solo los nuevos de cada semana, cada uno una sola vez.
+# Secretos del repo: SUPABASE_DB_URL (cadena "Session pooler" con contraseña) y
+# SUPABASE_SERVICE_ROLE_KEY. Variable: SUPABASE_URL.
+# Si falla, GitHub envía un correo al dueño del repo.
+name: Respaldo semanal
+
+on:
+  schedule:
+    - cron: "23 8 * * 0"     # domingos 03:23 hora Colombia
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: respaldo
+  cancel-in-progress: false
+
+jobs:
+  respaldo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      GH_TOKEN: ${{ github.token }}
+      KEEP_DB: 12
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cliente de PostgreSQL 17
+        run: |
+          sudo apt-get install -y -qq postgresql-common >/dev/null
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
+          sudo apt-get install -y -qq postgresql-client-17 >/dev/null
+          /usr/lib/postgresql/17/bin/pg_dump --version
+
+      - name: Respaldar la base
+        env:
+          DB: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          D=$(date -u +%F)
+          PGD=/usr/lib/postgresql/17/bin/pg_dump
+          mkdir -p out
+          $PGD "$DB" -Fc --no-owner --no-privileges -n public -f out/public.dump
+          $PGD "$DB" -Fc --no-owner --no-privileges --data-only -t auth.users -t auth.identities -f out/auth_usuarios.dump
+          $PGD "$DB" -Fc --no-owner --no-privileges --data-only -t storage.buckets -t storage.objects -f out/storage_metadatos.dump
+          (cd out && tar -czf "../base-$D.tar.gz" *.dump)
+          ls -la "base-$D.tar.gz"
+          echo "D=$D" >> "$GITHUB_ENV"
+
+      - name: Respaldar archivos nuevos
+        run: python3 respaldar_archivos.py "archivos-$D.zip" | tee /tmp/archivos.log
+
+      - name: Publicar en Releases y borrar respaldos viejos
+        run: |
+          gh release create "base-$D" "base-$D.tar.gz" --title "Base $D" \
+            --notes "Respaldo de la base de datos del $D (public + usuarios + metadatos de storage)." 2>/dev/null \
+          || gh release upload "base-$D" "base-$D.tar.gz" --clobber
+          if grep -q '^nuevos=[1-9]' /tmp/archivos.log; then
+            gh release create "archivos-$D" "archivos-$D.zip" --title "Archivos nuevos $D" \
+              --notes "$(grep -E '📦|✅' /tmp/archivos.log)" 2>/dev/null \
+            || gh release upload "archivos-$D" "archivos-$D.zip" --clobber
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add manifiesto.json && git commit -m "respaldo: manifiesto de archivos $D" && git push
+          fi
+          # Conservar solo las últimas $KEEP_DB copias de la base (las de archivos nunca se borran: son incrementales)
+          gh release list --limit 200 --json tagName,createdAt -q '.[] | select(.tagName|startswith("base-")) | .tagName' \
+            | sort -r | tail -n +$((KEEP_DB + 1)) | while read -r t; do
+              gh release delete "$t" --yes --cleanup-tag && echo "🗑️ $t"
+            done
+          echo "✅ Respaldo $D listo."

@@ -481,6 +481,26 @@ GitHub **desactiva los Actions programados si el repo pasa 60 días sin commits*
 
 ---
 
+## Parte 10b — Respaldo semanal de Supabase ⏳ montado en FANALCA, falta la primera corrida
+
+El plan gratis de Supabase **no tiene respaldos restaurables**. La plantilla está en [`respaldos/`](respaldos/): workflow `respaldo.yml`, script `respaldar_archivos.py` y [`RESTAURAR.md`](respaldos/RESTAURAR.md).
+
+- Va en un **repo privado aparte** (`<cuenta>/<planta>-respaldos`), nunca en el repo del sitio (es público).
+- Cada domingo: base comprimida (`public` + usuarios de `auth` + metadatos de storage) como **Release** `base-AAAA-MM-DD`; se guardan las **últimas 12** y las viejas se borran (libera espacio de verdad). Archivos (fotos, audios, PDF): solo los **nuevos** en un `.zip` por semana (`archivos-AAAA-MM-DD`), cada uno una sola vez; el historial de git solo guarda `manifiesto.json`. **No colma el espacio de GitHub.**
+- Si falla, GitHub manda correo al dueño del repo.
+
+Montaje (Claude crea el repo, sube los archivos y la variable `SUPABASE_URL`; **los dos secretos los pone el usuario**, Claude no maneja claves):
+
+```bash
+gh repo create <cuenta>/<planta>-respaldos --private
+# copiar respaldos/respaldo.yml → .github/workflows/, respaldar_archivos.py, RESTAURAR.md, manifiesto.json = {}
+gh variable set SUPABASE_URL -R <cuenta>/<planta>-respaldos --body "https://<ref>.supabase.co"
+# USUARIO:
+gh secret set SUPABASE_SERVICE_ROLE_KEY -R <cuenta>/<planta>-respaldos   # pegar la service_role (Project Settings → API)
+gh secret set SUPABASE_DB_URL -R <cuenta>/<planta>-respaldos             # pegar la cadena "Session pooler" (botón Connect) con la contraseña
+gh workflow run respaldo.yml -R <cuenta>/<planta>-respaldos               # primera corrida
+```
+
 ## Parte 11 — QR y cierre
 
 - Generar los QR desde `docs/urls.txt` **solo con el sitio completo** (Supabase y usuarios funcionando).
