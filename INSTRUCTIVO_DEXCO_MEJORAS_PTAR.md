@@ -117,9 +117,9 @@ El código base es el de **FANALCA** (ya trae los arreglos de esta guía). Se cl
 ```bash
 cd ~
 git clone https://github.com/fanalca-rpci/fanalca-rpci.git qr-base-tmp
-mkdir -p ~/DEXCO_QR
-rsync -a --exclude='.git' --exclude='Assets/' ~/qr-base-tmp/ ~/DEXCO_QR/
-cd ~/DEXCO_QR && git init -b master
+mkdir -p ~/DEXCO_QR_New
+rsync -a --exclude='.git' --exclude='Assets/' ~/qr-base-tmp/ ~/DEXCO_QR_New/
+cd ~/DEXCO_QR_New && git init -b master
 rm -rf ~/qr-base-tmp
 ```
 
@@ -161,7 +161,7 @@ supabase projects list      # debe aparecer el ref de DEXCO, ACTIVE_HEALTHY
 
 ## Parte 4 — Quitar todo lo de FANALCA ✅ validado (con D'Vida)
 
-Con `P=/home/<usuario>/DEXCO_QR`:
+Con `P=/home/<usuario>/DEXCO_QR_New`:
 
 ```bash
 rm -f "$P/plantilla_sitio.xlsx" "$P/TAG_RESOURCES.xlsx" "$P/fichas_source.xlsx" \
@@ -180,7 +180,7 @@ Reemplazar la URL y nombres (cambiar `<cuenta>/<repo>`):
 ```bash
 sed -i 's#https://fanalca-rpci.github.io/fanalca-rpci/#https://<cuenta>.github.io/<repo>/#g' \
   update_site_from_excel.sh comandos.txt gui.py excel_migrator.py
-sed -i 's#fanalca-rpci/fanalca-rpci.git#<cuenta>/<repo>.git#g; s#cd fanalca-rpci#cd <repo>#g; s#Fanalca_QR_New#DEXCO_QR#g' \
+sed -i 's#fanalca-rpci/fanalca-rpci.git#<cuenta>/<repo>.git#g; s#cd fanalca-rpci#cd <repo>#g; s#Fanalca_QR_New#DEXCO_QR_New#g' \
   New_Laptop.txt comandos.txt windows_launchers/*.bat windows_launchers/README.txt
 sed -i 's#PTAR FANALCA#DEXCO Mejoras PTAR#g; s#Ej. https://www.fanalca.com#Ej. https://<sitio-dexco>#; s#Ej. QR PTAR FANALCA#Ej. QR DEXCO Mejoras PTAR#' \
   gui.py excel_migrator.py
@@ -218,7 +218,7 @@ unzip -p "<fichas>.xlsm" xl/workbook.xml | grep -oP '<sheet [^>]*name="\K[^"]+'
 ### 5.3 Convertir
 
 ```bash
-cp "/mnt/d/…/<fichas>.xlsm" ~/DEXCO_QR/
+cp "/mnt/d/…/<fichas>.xlsm" ~/DEXCO_QR_New/
 python3 convert_fichas_to_template.py "<fichas>.xlsm"
 python3 generate_tag_resources_template.py
 ```
