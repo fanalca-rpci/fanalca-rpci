@@ -1,7 +1,7 @@
 {
   "source": "plantilla_sitio.xlsx",
-  "generated_at": "2026-11-18T20:11:23.458814",
-  "source_version": "2026-11-19T00:42:22.582144+00:00",
+  "generated_at": "2026-11-19T01:12:20.457680",
+  "source_version": "2026-11-19T01:12:06.890383+00:00",
   "fichas_version": "",
   "logo_version": "",
   "qr_logo_version": "",
@@ -41,7 +41,9 @@
       },
       "ficha_tecnica_url": null,
       "curva_url": null,
-      "resources": {}
+      "resources": {
+        "Specifications": "https://fanalca-rpci.github.io/fanalca-rpci/assets/fichas/100-P-01A.pdf"
+      }
     },
     {
       "tag": "100-P-01B",
@@ -70,7 +72,9 @@
       },
       "ficha_tecnica_url": null,
       "curva_url": null,
-      "resources": {}
+      "resources": {
+        "Specifications": "https://fanalca-rpci.github.io/fanalca-rpci/assets/fichas/100-P-01B.pdf"
+      }
     },
     {
       "tag": "400-R-01",
@@ -97,7 +101,9 @@
       },
       "ficha_tecnica_url": null,
       "curva_url": null,
-      "resources": {}
+      "resources": {
+        "Specifications": "https://fanalca-rpci.github.io/fanalca-rpci/assets/fichas/400-R-01.pdf"
+      }
     },
     {
       "tag": "400-MX-01",
@@ -120,7 +126,9 @@
       },
       "ficha_tecnica_url": null,
       "curva_url": null,
-      "resources": {}
+      "resources": {
+        "Specifications": "https://fanalca-rpci.github.io/fanalca-rpci/assets/fichas/400-MX-01.pdf"
+      }
     },
     {
       "tag": "400-C-01A",
@@ -147,7 +155,9 @@
       },
       "ficha_tecnica_url": null,
       "curva_url": null,
-      "resources": {}
+      "resources": {
+        "Specifications": "https://fanalca-rpci.github.io/fanalca-rpci/assets/fichas/400-C-01A.pdf"
+      }
     },
     {
       "tag": "400-C-01B",
@@ -174,7 +184,9 @@
       },
       "ficha_tecnica_url": null,
       "curva_url": null,
-      "resources": {}
+      "resources": {
+        "Specifications": "https://fanalca-rpci.github.io/fanalca-rpci/assets/fichas/400-C-01B.pdf"
+      }
     },
     {
       "tag": "500-TK-01",
@@ -197,7 +209,9 @@
       },
       "ficha_tecnica_url": null,
       "curva_url": null,
-      "resources": {}
+      "resources": {
+        "Specifications": "https://fanalca-rpci.github.io/fanalca-rpci/assets/fichas/500-TK-01.pdf"
+      }
     },
     {
       "tag": "600-TK-01",
@@ -222,7 +236,9 @@
       },
       "ficha_tecnica_url": null,
       "curva_url": null,
-      "resources": {}
+      "resources": {
+        "Specifications": "https://fanalca-rpci.github.io/fanalca-rpci/assets/fichas/600-TK-01.pdf"
+      }
     },
     {
       "tag": "600-TK-02",
@@ -245,7 +261,9 @@
       },
       "ficha_tecnica_url": null,
       "curva_url": null,
-      "resources": {}
+      "resources": {
+        "Specifications": "https://fanalca-rpci.github.io/fanalca-rpci/assets/fichas/600-TK-02.pdf"
+      }
     },
     {
       "tag": "600-P-01",
@@ -275,7 +293,9 @@
       },
       "ficha_tecnica_url": null,
       "curva_url": null,
-      "resources": {}
+      "resources": {
+        "Specifications": "https://fanalca-rpci.github.io/fanalca-rpci/assets/fichas/600-P-01.pdf"
+      }
     },
     {
       "tag": "600-P-02",
@@ -304,7 +324,10 @@
       },
       "ficha_tecnica_url": null,
       "curva_url": null,
-      "resources": {}
+      "resources": {
+        "Specifications": "https://fanalca-rpci.github.io/fanalca-rpci/assets/fichas/600-P-02.pdf",
+        "Handbook_Manual": "https://production.axflow.com/globalassets/catalog/mw/wilden/eoms/p1_org_plastic_eom.pdf"
+      }
     },
     {
       "tag": "600-SD-01",
@@ -332,7 +355,9 @@
       },
       "ficha_tecnica_url": null,
       "curva_url": null,
-      "resources": {}
+      "resources": {
+        "Specifications": "https://fanalca-rpci.github.io/fanalca-rpci/assets/fichas/600-SD-01.pdf"
+      }
     },
     {
       "tag": "803-P-01",
@@ -360,7 +385,10 @@
       },
       "ficha_tecnica_url": null,
       "curva_url": null,
-      "resources": {}
+      "resources": {
+        "Specifications": "https://fanalca-rpci.github.io/fanalca-rpci/assets/fichas/803-P-01.pdf",
+        "Handbook_Manual": "https://production.axflow.com/globalassets/catalog/mw/wilden/eoms/p025-plastic-eom.pdf"
+      }
     },
     {
       "tag": "803-TK-01",
@@ -382,7 +410,9 @@
       },
       "ficha_tecnica_url": null,
       "curva_url": null,
-      "resources": {}
+      "resources": {
+        "Specifications": "https://fanalca-rpci.github.io/fanalca-rpci/assets/fichas/803-TK-01.pdf"
+      }
     },
     {
       "tag": "100-C-01",
@@ -409,7 +439,9 @@
       },
       "ficha_tecnica_url": null,
       "curva_url": null,
-      "resources": {}
+      "resources": {
+        "Specifications": "https://fanalca-rpci.github.io/fanalca-rpci/assets/fichas/100-C-01.pdf"
+      }
     }
   ]
 }

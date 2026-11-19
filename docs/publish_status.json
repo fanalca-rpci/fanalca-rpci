@@ -1,0 +1,33 @@
+{
+  "version": "2026-11-19T01:12:06.890383+00:00",
+  "ok": true,
+  "at": "2026-11-19T01:12:19+00:00",
+  "tags": 15,
+  "categories": {
+    "EQUIPOS": 9,
+    "INSTRUMENTOS": 0,
+    "TANQUES": 6
+  },
+  "warnings": [],
+  "log": [
+    "🔗 15 TAGs con enlaces.",
+    "   🌐 site_url derivada del git remote: https://fanalca-rpci.github.io/fanalca-rpci/",
+    "🎨 Tema cargado de site_config.json",
+    "📖 Leyendo: plantilla_sitio.xlsx",
+    "   📷 15 TAGs con imágenes cargadas del manifest",
+    "📖 Leyendo recursos: /home/runner/work/fanalca-rpci/fanalca-rpci/TAG_RESOURCES.xlsx",
+    "   🔗 15 TAGs con recursos cargados (17 enlaces)",
+    "   15 TAGs cargados, 72 propiedades posibles",
+    "🏗️  Generando sitio en: docs",
+    "   ✅ styles.css + script.js + .nojekyll + assets/icons/generic-image.svg",
+    "   ✅ index.html",
+    "   ✅ mantenimientos.html",
+    "   ✅ admin/ (administración web)",
+    "   ✅ equipos/ (9 páginas)",
+    "   ✅ tanques/ (6 páginas)",
+    "   ✅ README.md + migration_metadata.json + search-index.{json,js} + urls.txt",
+    "",
+    "✅ 15 TAGs publicados en docs/",
+    "   Por categoría: EQUIPOS=9, TANQUES=6"
+  ]
+}
