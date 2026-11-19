@@ -16,6 +16,7 @@ def test_desactivado_con_sesion_abierta_no_puede_registrar(service_client, tecni
             tecnico_client.table("maintenance_records").insert({
                 "tag_id": random_tag_id,
                 "performed_at": date.today().isoformat(),
+                "type": "preventivo",
                 "description": "no debería guardarse",
                 "created_by": tecnico_id,
             }).execute()

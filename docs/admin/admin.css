@@ -210,3 +210,11 @@ button.adm-card:active, a.adm-card:active { background: #f6f8fa; }
     .adm-stat strong { font-size: 26px; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* Rutinas dentro del formulario de edición de registros */
+.adm-acts { display: grid; gap: 4px; }
+.adm-act-check { align-items: flex-start; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; background: #fff; }
+.adm-act-check input { margin-top: 2px; flex: none; }
+.adm-act-check small { display: block; color: var(--text-muted); font-size: 13px; }
+.adm-cls-hpd { margin: 4px 0 6px; font-size: 13.5px; }
+button.adm-menu-item { font: inherit; }

@@ -17,6 +17,10 @@
         { weeks: 26, label: 'Semestral' }, { weeks: 52, label: 'Anual' },
     ];
 
+    var REGIMES = {
+        normal: 'Independiente (cada uno según su uso)', principal: 'Titular (trabaja normalmente)',
+        reserva: 'Respaldo (entra solo si falla el titular)', alterna: 'Alternan (se turnan el trabajo)',
+    };
     var app = document.getElementById('admin-app');
     var nav = document.getElementById('adm-nav');
     var state = { session: null, profile: null, draft: {} };
@@ -32,9 +36,12 @@
         t.innerHTML = html.trim();
         return t.content.firstElementChild;
     }
-    function freqLabel(weeks) {
+    function freqLabel(weeks, hours) {
         var f = FREQS.filter(function (x) { return x.weeks === weeks; })[0];
-        return f ? f.label : (weeks ? 'Cada ' + weeks + ' semanas' : 'Sin frecuencia');
+        var w = f ? f.label : (weeks ? 'Cada ' + weeks + ' semanas' : '');
+        var h = hours ? 'cada ' + Number(hours).toLocaleString('es-CO') + ' h' : '';
+        if (w && h) return w + ' o ' + h;
+        return w || (h ? h.charAt(0).toUpperCase() + h.slice(1) : 'Sin frecuencia');
     }
     function slug(s) {
         return L.fold(s).toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24) || 'RUTINA';
@@ -306,7 +313,7 @@
     // ── 📋 Registros ──────────────────────────────────────────────────────
     function recordsQuery() {
         return client.from('maintenance_records')
-            .select('id,tag_id,performed_at,created_at,description,hmi_hours,created_by,' +
+            .select('id,tag_id,performed_at,created_at,type,description,parts_used,hmi_hours,created_by,' +
                 'maintenance_record_activities(activity_id,maintenance_activities(name)),maintenance_attachments(count)')
             .order('performed_at', { ascending: false })
             .order('created_at', { ascending: false })
@@ -330,7 +337,9 @@
         }).filter(Boolean);
         var media = rec.maintenance_attachments && rec.maintenance_attachments[0] ? rec.maintenance_attachments[0].count : 0;
         var card = el('<button type="button" class="adm-card adm-rec">' +
-            '<span class="adm-rec-top"><strong>' + esc(rec.tag_id) + '</strong><span>' + esc(L.formatDate(rec.performed_at)) + '</span></span>' +
+            '<span class="adm-rec-top"><strong>' + esc(rec.tag_id) +
+            (rec.type === 'correctivo' ? ' <span class="adm-chip is-warn">Correctivo</span>' : '') +
+            '</strong><span>' + esc(L.formatDate(rec.performed_at)) + '</span></span>' +
             '<span class="adm-rec-desc">' + esc(rec.description) + '</span>' +
             '<span class="adm-rec-meta">' + esc(rec.author || '') + (acts.length ? ' · ' + acts.length + ' rutina' + (acts.length > 1 ? 's' : '') : '') +
             (media ? ' · 📷 ' + media : '') + '</span></button>');
@@ -343,12 +352,15 @@
         var body = el('<div class="adm-detail">' +
             '<p class="adm-muted">' + esc(tagInfo(rec.tag_id).servicio) + '</p>' +
             '<dl><dt>Fecha</dt><dd>' + esc(L.formatDate(rec.performed_at)) + '</dd>' +
+            '<dt>Tipo</dt><dd>' + (rec.type === 'correctivo' ? 'Correctivo' : 'Preventivo') + '</dd>' +
             '<dt>Autor</dt><dd>' + esc(rec.author || '') + '</dd>' +
             (rec.hmi_hours != null ? '<dt>Horas HMI</dt><dd>' + esc(rec.hmi_hours) + '</dd>' : '') +
             '</dl><p class="adm-pre"></p>' +
+            (rec.parts_used ? '<h3 class="adm-h3">Repuestos / insumos</h3><p class="adm-pre adm-parts"></p>' : '') +
             (acts.length ? '<h3 class="adm-h3">Rutinas</h3><ul class="adm-list">' + acts.map(function (a) { return '<li>' + esc(a) + '</li>'; }).join('') + '</ul>' : '') +
             '<a class="adm-btn is-ghost is-block" href="' + esc(fichaUrl(rec.tag_id)) + '">Ver ficha y fotos</a></div>');
         body.querySelector('.adm-pre').textContent = rec.description;
+        if (rec.parts_used) body.querySelector('.adm-parts').textContent = rec.parts_used;
         var actions = [];
         var s;
         if (isOficina) {
@@ -369,28 +381,71 @@
         s = sheet({ title: rec.tag_id + ' · ' + L.formatDate(rec.performed_at), body: body, actions: actions, focus: false });
     }
 
+    // Rutinas que se pueden marcar en un registro: las activas del tipo del TAG
+    // más las que ya tenía marcadas (aunque hoy estén desactivadas).
+    function activitiesForTag(tag, currentIds) {
+        return client.from('equipment_tags').select('class_id').eq('tag_id', tag).maybeSingle().then(function (r) {
+            var classId = r.data && r.data.class_id;
+            if (!classId) return [];
+            return client.from('maintenance_activities').select('id,name,active,interval_weeks')
+                .eq('class_id', classId).order('name').then(function (a) {
+                    return (a.data || []).filter(function (x) { return x.active || currentIds.indexOf(x.id) !== -1; });
+                });
+        });
+    }
+
     function editRecord(rec) {
+        var current = (rec.maintenance_record_activities || []).map(function (a) { return a.activity_id; });
         var form = el('<form class="adm-form" novalidate>' +
             '<label class="adm-field"><span>Fecha</span><input type="date" name="fecha" required></label>' +
+            '<label class="adm-field"><span>Tipo</span><select name="tipo"><option value="preventivo">Preventivo</option><option value="correctivo">Correctivo</option></select></label>' +
             '<label class="adm-field"><span>Descripción</span><textarea name="desc" rows="4" required></textarea></label>' +
+            '<fieldset class="adm-field"><span>Rutinas realizadas</span><div class="adm-acts">' + skeleton(1) + '</div></fieldset>' +
+            '<label class="adm-field"><span>Repuestos / insumos (opcional)</span><textarea name="parts" rows="2"></textarea></label>' +
             '<label class="adm-field"><span>Horas HMI (opcional)</span><input type="number" name="hmi" min="0" step="0.1" inputmode="decimal"></label>' +
             '<p class="adm-error" hidden></p></form>');
         form.fecha.value = rec.performed_at;
+        form.tipo.value = rec.type || 'preventivo';
         form.desc.value = rec.description;
+        form.parts.value = rec.parts_used || '';
         if (rec.hmi_hours != null) form.hmi.value = rec.hmi_hours;
+        var actsBox = form.querySelector('.adm-acts');
+        activitiesForTag(rec.tag_id, current).then(function (acts) {
+            if (!acts.length) { actsBox.innerHTML = '<p class="adm-muted">Este equipo no tiene tipo asignado (⚙️ Equipos).</p>'; return; }
+            actsBox.innerHTML = acts.map(function (a) {
+                return '<label class="adm-check adm-act-check"><input type="checkbox" name="act" value="' + a.id + '"' +
+                    (current.indexOf(a.id) !== -1 ? ' checked' : '') + '> <span>' + esc(a.name) + ' <small>' + esc(freqLabel(a.interval_weeks)) + '</small></span></label>';
+            }).join('');
+        });
         var save = button('Guardar', 'is-primary', function () {
             var err = form.querySelector('.adm-error');
             if (!form.fecha.value || !form.desc.value.trim()) { err.textContent = 'La fecha y la descripción son obligatorias.'; err.hidden = false; return; }
+            var chosen = Array.prototype.filter.call(form.querySelectorAll('[name=act]'), function (c) { return c.checked; })
+                .map(function (c) { return c.value; });
+            var toAdd = chosen.filter(function (id) { return current.indexOf(id) === -1; });
+            var toDel = current.filter(function (id) { return chosen.indexOf(id) === -1 && form.querySelector('[name=act][value="' + id + '"]'); });
             busy(save, true);
             client.from('maintenance_records').update({
-                performed_at: form.fecha.value, description: form.desc.value.trim(),
+                performed_at: form.fecha.value, type: form.tipo.value, description: form.desc.value.trim(),
+                parts_used: form.parts.value.trim() || null,
                 hmi_hours: form.hmi.value === '' ? null : Number(form.hmi.value),
             }).eq('id', rec.id).then(function (r) {
+                if (r.error) throw r.error;
+                var ops = [];
+                if (toAdd.length) ops.push(client.from('maintenance_record_activities').insert(toAdd.map(function (id) { return { record_id: rec.id, activity_id: id }; })));
+                if (toDel.length) ops.push(client.from('maintenance_record_activities').delete().eq('record_id', rec.id).in('activity_id', toDel));
+                return Promise.all(ops);
+            }).then(function (res) {
+                var bad = (res || []).filter(function (x) { return x.error; })[0];
+                if (bad) throw bad.error;
                 busy(save, false);
-                if (r.error) { err.textContent = dbError(r.error); err.hidden = false; return; }
                 s.close();
                 toast('Registro actualizado.');
                 route();
+            }).catch(function (e) {
+                busy(save, false);
+                err.textContent = dbError(e);
+                err.hidden = false;
             });
         });
         var s = sheet({ title: 'Editar · ' + rec.tag_id, body: form, actions: [button('Cancelar', 'is-ghost', function () { s.close(); }), save] });
@@ -461,8 +516,8 @@
     function loadCatalog() {
         return Promise.all([
             client.from('equipment_classes').select('id,code,name,hours_per_day').order('name'),
-            client.from('maintenance_activities').select('id,class_id,code,name,interval_weeks,active').order('name'),
-            client.from('equipment_tags').select('tag_id,class_id,group_key'),
+            client.from('maintenance_activities').select('id,class_id,code,name,interval_weeks,interval_hours,active').order('name'),
+            client.from('equipment_tags').select('tag_id,class_id,group_key,regime'),
         ]).then(function (r) {
             var err = r[0].error || r[1].error || r[2].error;
             if (err) throw err;
@@ -491,7 +546,7 @@
                     var row = el('<div class="adm-act' + (a.active ? '' : ' is-off') + '"><button type="button" class="adm-act-main"><span class="adm-act-name"></span><span class="adm-chip"></span></button>' +
                         '<label class="adm-switch" title="Activa"><input type="checkbox" aria-label="Activa"><span></span></label></div>');
                     row.querySelector('.adm-act-name').textContent = a.name;
-                    row.querySelector('.adm-chip').textContent = freqLabel(a.interval_weeks);
+                    row.querySelector('.adm-chip').textContent = freqLabel(a.interval_weeks, a.interval_hours);
                     var sw = row.querySelector('input');
                     sw.checked = a.active;
                     sw.addEventListener('change', function () {
@@ -509,9 +564,11 @@
                     row.querySelector('.adm-act-main').addEventListener('click', function () { editActivity(c, a, acts); });
                     bodyEl.appendChild(row);
                 });
+                bodyEl.insertBefore(el('<p class="adm-muted adm-cls-hpd">Uso estimado: ' + esc(c.hours_per_day) + ' h/día</p>'), bodyEl.firstChild);
                 var add = button('＋ Rutina', 'is-ghost is-block', function () { editActivity(c, null, acts); });
                 if (active.length >= 5) { add.disabled = true; add.textContent = 'Máximo 5 rutinas activas'; }
                 bodyEl.appendChild(add);
+                bodyEl.appendChild(button('Editar tipo de equipo', 'is-ghost is-block', function () { editClass(c); }));
                 list.appendChild(item);
             });
         }).catch(function (e) { box.querySelector('#cls').innerHTML = '<p class="adm-alert">' + esc(dbError(e)) + '</p>'; });
@@ -528,7 +585,11 @@
     function editActivity(cls, act, acts) {
         var form = el('<form class="adm-form" novalidate>' +
             '<label class="adm-field"><span>Nombre de la rutina</span><textarea name="name" rows="2" maxlength="140" required></textarea></label>' +
-            freqField(act ? act.interval_weeks : 4) + '<p class="adm-error" hidden></p></form>');
+            freqField(act ? act.interval_weeks : 4) +
+            '<label class="adm-field"><span>…o cada cuántas horas de trabajo (opcional)</span><input type="number" name="hours" min="1" step="1" inputmode="numeric" placeholder="Ej. 8000"></label>' +
+            '<p class="adm-note">Si ponés horas, gana lo que llegue primero: la fecha o las horas del HMI.</p>' +
+            '<p class="adm-error" hidden></p></form>');
+        if (act && act.interval_hours) form.hours.value = act.interval_hours;
         form.name.value = act ? act.name : '';
         form.freq.addEventListener('change', function () { form.querySelector('[data-otra]').hidden = form.freq.value !== 'otra'; });
         var save = button(act ? 'Guardar' : 'Agregar rutina', 'is-primary', function () {
@@ -537,17 +598,19 @@
             var weeks = form.freq.value === 'otra' ? parseInt(form.weeks.value, 10) : parseInt(form.freq.value, 10);
             if (!name) { err.textContent = 'Escribí el nombre de la rutina.'; err.hidden = false; return; }
             if (!weeks || weeks < 1) { err.textContent = 'Indicá cada cuántas semanas.'; err.hidden = false; return; }
+            var hours = form.hours.value === '' ? null : parseInt(form.hours.value, 10);
+            if (hours !== null && !(hours > 0)) { err.textContent = 'Las horas deben ser un número mayor que 0.'; err.hidden = false; return; }
             busy(save, true);
             var req;
             if (act) {
-                req = client.from('maintenance_activities').update({ name: name, interval_weeks: weeks }).eq('id', act.id);
+                req = client.from('maintenance_activities').update({ name: name, interval_weeks: weeks, interval_hours: hours }).eq('id', act.id);
             } else {
                 var code = slug(name);
                 var used = acts.map(function (a) { return a.code; });
                 var n = 2;
                 var base = code;
                 while (used.indexOf(code) !== -1) code = base.slice(0, 21) + '-' + n++;
-                req = client.from('maintenance_activities').insert({ class_id: cls.id, code: code, name: name, interval_weeks: weeks });
+                req = client.from('maintenance_activities').insert({ class_id: cls.id, code: code, name: name, interval_weeks: weeks, interval_hours: hours });
             }
             req.then(function (r) {
                 busy(save, false);
@@ -558,6 +621,30 @@
             });
         });
         var s = sheet({ title: (act ? 'Editar rutina · ' : 'Nueva rutina · ') + cls.name, body: form, actions: [button('Cancelar', 'is-ghost', function () { s.close(); }), save] });
+    }
+
+    function editClass(c) {
+        var form = el('<form class="adm-form" novalidate>' +
+            '<label class="adm-field"><span>Nombre</span><input name="name" maxlength="60" required></label>' +
+            '<label class="adm-field"><span>Horas de trabajo por día (estimado)</span><input type="number" name="hpd" min="0.5" max="24" step="0.5" inputmode="decimal" required></label>' +
+            '<p class="adm-note">Se usa para estimar cuándo toca una rutina por horas si no hay lecturas del HMI.</p><p class="adm-error" hidden></p></form>');
+        form.name.value = c.name;
+        form.hpd.value = c.hours_per_day;
+        var save = button('Guardar', 'is-primary', function () {
+            var err = form.querySelector('.adm-error');
+            var hpd = Number(form.hpd.value);
+            if (!form.name.value.trim()) { err.textContent = 'Escribí el nombre.'; err.hidden = false; return; }
+            if (!(hpd > 0 && hpd <= 24)) { err.textContent = 'Las horas por día deben estar entre 0,5 y 24.'; err.hidden = false; return; }
+            busy(save, true);
+            client.from('equipment_classes').update({ name: form.name.value.trim(), hours_per_day: hpd }).eq('id', c.id).then(function (r) {
+                busy(save, false);
+                if (r.error) { err.textContent = dbError(r.error); err.hidden = false; return; }
+                s.close();
+                toast('Tipo de equipo guardado.');
+                route();
+            });
+        });
+        var s = sheet({ title: 'Editar · ' + c.name, body: form, actions: [button('Cancelar', 'is-ghost', function () { s.close(); }), save] });
     }
 
     function newClass() {
@@ -610,9 +697,12 @@
                         '<span class="adm-rec-desc"></span>' + (pair ? '<span class="adm-rec-meta">Par con ' + esc(pair) + ' · cada uno con su historial</span>' : '') + '</button>');
                     card.querySelector('strong').textContent = t.tag;
                     card.querySelector('.adm-chip').textContent = cur ? cur.name : 'Sin tipo';
+                    if (pair && byTag[t.tag] && REGIMES[byTag[t.tag].regime] && byTag[t.tag].regime !== 'normal') {
+                        card.querySelector('.adm-rec-desc').insertAdjacentHTML('afterend', '<span class="adm-rec-meta">' + esc(REGIMES[byTag[t.tag].regime]) + '</span>');
+                    }
                     if (!cur) card.querySelector('.adm-chip').classList.add('is-warn');
                     card.querySelector('.adm-rec-desc').textContent = t.servicio;
-                    card.addEventListener('click', function () { assignClass(t, cur, cat.classes, pair); });
+                    card.addEventListener('click', function () { assignClass(t, cur, cat.classes, pair, byTag[t.tag]); });
                     list.appendChild(card);
                 });
             }
@@ -621,19 +711,23 @@
         }).catch(function (e) { box.querySelector('#eq-list').innerHTML = '<p class="adm-alert">' + esc(dbError(e)) + '</p>'; });
     }
 
-    function assignClass(t, cur, classes, pair) {
+    function assignClass(t, cur, classes, pair, row) {
         var form = el('<form class="adm-form" novalidate><p class="adm-muted"></p><label class="adm-field"><span>Tipo de equipo</span><select name="cls"><option value="">— Elegí —</option>' +
             classes.map(function (c) { return '<option value="' + c.id + '">' + esc(c.name) + '</option>'; }).join('') + '</select></label>' +
+            (pair ? '<label class="adm-field"><span>Papel dentro del par con ' + esc(pair) + '</span><select name="reg">' +
+                Object.keys(REGIMES).map(function (k) { return '<option value="' + k + '">' + esc(REGIMES[k]) + '</option>'; }).join('') +
+                '</select></label>' : '') +
             (cur ? '<p class="adm-note">Las rutinas de los registros anteriores se conservan; las fechas se calculan con las rutinas del tipo nuevo.</p>' : '') +
             '<p class="adm-error" hidden></p></form>');
         form.querySelector('.adm-muted').textContent = t.servicio;
         if (cur) form.cls.value = cur.id;
+        if (pair) form.reg.value = (row && row.regime) || 'normal';
         var save = button('Guardar', 'is-primary', function () {
             var err = form.querySelector('.adm-error');
             if (!form.cls.value) { err.textContent = 'Elegí un tipo de equipo.'; err.hidden = false; return; }
             busy(save, true);
             var group = pair ? t.tag.replace(/[AB]$/, '') : null;
-            client.from('equipment_tags').upsert({ tag_id: t.tag, class_id: form.cls.value, group_key: group }).then(function (r) {
+            client.from('equipment_tags').upsert({ tag_id: t.tag, class_id: form.cls.value, group_key: group, regime: pair ? form.reg.value : 'normal' }).then(function (r) {
                 busy(save, false);
                 if (r.error) { err.textContent = dbError(r.error); err.hidden = false; return; }
                 s.close();
@@ -650,7 +744,82 @@
             '<a class="adm-card adm-menu-item" href="#usuarios"><span>👥</span><strong>Usuarios</strong><em>›</em></a>' +
             '<a class="adm-card adm-menu-item" href="#cuenta"><span>🔑</span><strong>Mi cuenta</strong><em>›</em></a>' +
             '<a class="adm-card adm-menu-item" href="../mantenimientos.html"><span>🛠</span><strong>Ver el sitio de mantenimientos</strong><em>›</em></a>' +
+            '</div><h2 class="adm-h2">Descargar (Excel)</h2><div class="adm-menu">' +
+            '<button type="button" class="adm-card adm-menu-item" id="dl-rutinas"><span>🔧</span><strong>Rutinas por tipo de equipo</strong><em>⬇</em></button>' +
+            '<button type="button" class="adm-card adm-menu-item" id="dl-equipos"><span>⚙️</span><strong>Equipos y su tipo</strong><em>⬇</em></button>' +
+            '<button type="button" class="adm-card adm-menu-item" id="dl-registros"><span>📋</span><strong>Registros (últimos 12 meses)</strong><em>⬇</em></button>' +
             '</div>';
+        box.querySelector('#dl-rutinas').addEventListener('click', function () { exportRutinas(this); });
+        box.querySelector('#dl-equipos').addEventListener('click', function () { exportEquipos(this); });
+        box.querySelector('#dl-registros').addEventListener('click', function () { exportRegistros(this); });
+    }
+
+    // ── Descargas CSV (abren en Excel: BOM + punto y coma) ──────────────────
+    function downloadCsv(name, header, rows) {
+        function cell(v) { var t = String(v == null ? '' : v); return /[";\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; }
+        var csv = '\ufeff' + [header].concat(rows).map(function (r) { return r.map(cell).join(';'); }).join('\r\n');
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+        a.download = name + '_' + new Date().toISOString().slice(0, 10) + '.csv';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    }
+
+    function exportRutinas(btn) {
+        btn.disabled = true;
+        loadCatalog().then(function (cat) {
+            var byId = {};
+            cat.classes.forEach(function (c) { byId[c.id] = c; });
+            var rows = cat.acts.map(function (a) {
+                var c = byId[a.class_id] || {};
+                return [c.name, a.name, a.interval_weeks || '', a.interval_hours || '', freqLabel(a.interval_weeks, a.interval_hours), a.active ? 'Sí' : 'No'];
+            }).sort(function (x, y) { return String(x[0]).localeCompare(y[0], 'es'); });
+            downloadCsv('rutinas', ['Tipo de equipo', 'Rutina', 'Cada (semanas)', 'Cada (horas)', 'Frecuencia', 'Activa'], rows);
+            toast('Descarga lista.');
+        }).catch(function (e) { toast(dbError(e), 'error'); }).then(function () { btn.disabled = false; });
+    }
+
+    function exportEquipos(btn) {
+        btn.disabled = true;
+        loadCatalog().then(function (cat) {
+            var cls = {};
+            cat.classes.forEach(function (c) { cls[c.id] = c.name; });
+            var byTag = {};
+            cat.tags.forEach(function (t) { byTag[t.tag_id] = t; });
+            var rows = TAGS.map(function (t) {
+                var r = byTag[t.tag] || {};
+                return [t.tag, t.categoria, t.servicio, cls[r.class_id] || 'Sin tipo', REGIMES[r.regime] || ''];
+            });
+            downloadCsv('equipos', ['TAG', 'Categoría', 'Servicio', 'Tipo de equipo', 'Papel en el par'], rows);
+            toast('Descarga lista.');
+        }).catch(function (e) { toast(dbError(e), 'error'); }).then(function () { btn.disabled = false; });
+    }
+
+    function exportRegistros(btn) {
+        busy(btn, true, 'Preparando…');
+        var since = new Date(Date.now() - 365 * 864e5).toISOString().slice(0, 10);
+        var all = [];
+        function page(last) {
+            var q = recordsQuery().gte('performed_at', since).limit(1000);
+            if (last) {
+                q = q.or('performed_at.lt.' + last.performed_at +
+                    ',and(performed_at.eq.' + last.performed_at + ',created_at.lt.' + last.created_at + ')' +
+                    ',and(performed_at.eq.' + last.performed_at + ',created_at.eq.' + last.created_at + ',id.lt.' + last.id + ')');
+            }
+            return q.then(function (r) {
+                if (r.error) throw r.error;
+                all = all.concat(r.data);
+                if (r.data.length === 1000 && all.length < 50000) return page(r.data[r.data.length - 1]);
+            });
+        }
+        page(null).then(function () { return withAuthors(all); }).then(function (rows) {
+            downloadCsv('registros', ['Fecha', 'TAG', 'Tipo', 'Descripción', 'Rutinas', 'Repuestos', 'Horas HMI', 'Autor'], rows.map(function (r) {
+                var acts = (r.maintenance_record_activities || []).map(function (a) { return a.maintenance_activities ? a.maintenance_activities.name : ''; }).filter(Boolean).join(' | ');
+                return [r.performed_at, r.tag_id, r.type, r.description, acts, r.parts_used || '', r.hmi_hours == null ? '' : r.hmi_hours, r.author];
+            }));
+            toast(rows.length + ' registros descargados.');
+        }).catch(function (e) { toast(dbError(e), 'error'); }).then(function () { busy(btn, false); });
     }
 
     // ── 👥 Usuarios ───────────────────────────────────────────────────────
